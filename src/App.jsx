@@ -31,7 +31,8 @@ export default function App() {
           </div>
 
           <footer className="py-8 text-center text-sm text-stone-400">
-            Hecho con ❤️ — Layout con sidebar fijo (fixed h-full left-0 top-0 · ml-80 · overflow-y-auto)
+            {/*Hecho con ❤️ — Layout con sidebar fijo (fixed h-full left-0 top-0 · ml-80 · overflow-y-auto)*/}
+            Consultas —  públicas disponibles en desarrollo
           </footer>
         </section>
       </main>
