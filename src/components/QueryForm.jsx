@@ -1,4 +1,4 @@
-// Formulario con checkboxes (RUC / Deudas) y polling
+// Formulario con checkboxes (RUC / Deudas / Denuncias / Interpol) y polling
 // src/components/QueryForm.jsx
 import { useEffect, useRef, useState } from "react";
 import { createConsultas, getJobStatus } from "../lib/api";
@@ -7,10 +7,15 @@ export default function QueryForm() {
   const [rucChecked, setRucChecked] = useState(true);
   const [deudasChecked, setDeudasChecked] = useState(false);
   const [denunciasChecked, setDenunciasChecked] = useState(false);
+  const [interpolChecked, setInterpolChecked] = useState(false); // 👈 nuevo
 
   const [rucValue, setRucValue] = useState("");
   const [deudasValue, setDeudasValue] = useState("");
   const [denunciasValue, setDenunciasValue] = useState("");
+
+  // Interpol: apellidos y nombres pueden ir vacíos (se permite uno u otro)
+  const [interpolApellidos, setInterpolApellidos] = useState("");
+  const [interpolNombres, setInterpolNombres] = useState("");
 
   const [headless, setHeadless] = useState(false); // normalmente FALSE por captcha
 
@@ -47,6 +52,16 @@ export default function QueryForm() {
       const nombre = denunciasValue.trim();
       if (!nombre) throw new Error("Ingresa los nombres completos para la consulta de Denuncias.");
       items.push({ tipo: "denuncias", valor: nombre });
+    }
+
+    if (interpolChecked) {
+      const a = interpolApellidos.trim();
+      const n = interpolNombres.trim();
+      if (!a && !n) {
+        throw new Error("Para INTERPOL ingresa Apellidos o Nombres (uno o ambos).");
+      }
+      // Contrato backend: "APELLIDOS|NOMBRES"
+      items.push({ tipo: "interpol", valor: `${a}|${n}` });
     }
 
     if (items.length === 0) throw new Error("Selecciona al menos una página a consultar.");
@@ -108,9 +123,14 @@ export default function QueryForm() {
     setRucChecked(true);
     setDeudasChecked(false);
     setDenunciasChecked(false);
+    setInterpolChecked(false);
+
     setRucValue("");
     setDeudasValue("");
     setDenunciasValue("");
+    setInterpolApellidos("");
+    setInterpolNombres("");
+
     setHeadless(false);
     setJobId(null);
     setJobStatus(null);
@@ -204,7 +224,41 @@ export default function QueryForm() {
           </div>
         )}
 
-        {/* Opciones 
+        {/* INTERPOL (Notificaciones rojas) */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={interpolChecked}
+            onChange={(e) => setInterpolChecked(e.target.checked)}
+            disabled={isSubmitting}
+          />
+          <strong>INTERPOL – Notificaciones rojas</strong>
+        </label>
+        {interpolChecked && (
+          <div style={{ margin: "8px 0 16px 24px", display: "grid", gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Apellidos (ej.: MACIAS VILLAMAR) — opcional si llenas Nombres"
+              value={interpolApellidos}
+              onChange={(e) => setInterpolApellidos(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <input
+              type="text"
+              placeholder="Nombres (ej.: JOSE ADOLFO) — opcional si llenas Apellidos"
+              value={interpolNombres}
+              onChange={(e) => setInterpolNombres(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <small style={{ color: "#666" }}>
+              Se permite usar solo apellidos, solo nombres, o ambos. Se enviará como "APELLIDOS|NOMBRES".
+            </small>
+          </div>
+        )}
+
+        {/* Opciones
         <div style={{ marginTop: 12 }}>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <input
@@ -215,7 +269,7 @@ export default function QueryForm() {
             />
             Ejecutar headless (no recomendado por CAPTCHA)
           </label>
-        </div>*/}
+        </div> */}
 
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
           <button type="submit" disabled={isSubmitting} style={{ padding: "8px 16px" }}>
