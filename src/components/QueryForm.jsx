@@ -1,5 +1,3 @@
-// Formulario con checkboxes (RUC / Deudas / Denuncias / Interpol) y polling
-// src/components/QueryForm.jsx
 import { useEffect, useRef, useState } from "react";
 import { createConsultas, getJobStatus } from "../lib/api";
 
@@ -7,20 +5,22 @@ export default function QueryForm() {
   const [rucChecked, setRucChecked] = useState(true);
   const [deudasChecked, setDeudasChecked] = useState(false);
   const [denunciasChecked, setDenunciasChecked] = useState(false);
-  const [interpolChecked, setInterpolChecked] = useState(false); // 👈 nuevo
+  const [mvChecked, setMvChecked] = useState(false);
+  const [interpolChecked, setInterpolChecked] = useState(false);
 
   const [rucValue, setRucValue] = useState("");
   const [deudasValue, setDeudasValue] = useState("");
   const [denunciasValue, setDenunciasValue] = useState("");
+  const [mvValue, setMvValue] = useState("");
 
-  // Interpol: apellidos y nombres pueden ir vacíos (se permite uno u otro)
+  // INTERPOL (libre elección)
   const [interpolApellidos, setInterpolApellidos] = useState("");
   const [interpolNombres, setInterpolNombres] = useState("");
 
-  const [headless, setHeadless] = useState(false); // normalmente FALSE por captcha
+  const [headless, setHeadless] = useState(false);
 
   const [jobId, setJobId] = useState(null);
-  const [jobStatus, setJobStatus] = useState(null); // queued | running | done | error
+  const [jobStatus, setJobStatus] = useState(null);
   const [resultData, setResultData] = useState(null);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +42,6 @@ export default function QueryForm() {
     }
 
     if (deudasChecked) {
-      // si no llenan un valor específico para Deudas, usamos el del RUC si está marcado
       const v = (deudasValue || (rucChecked ? rucValue : "")).trim();
       if (!v) throw new Error("Ingresa cédula/RUC para la consulta de Deudas.");
       items.push({ tipo: "deudas", valor: v });
@@ -54,14 +53,33 @@ export default function QueryForm() {
       items.push({ tipo: "denuncias", valor: nombre });
     }
 
-    if (interpolChecked) {
-      const a = interpolApellidos.trim();
-      const n = interpolNombres.trim();
-      if (!a && !n) {
-        throw new Error("Para INTERPOL ingresa Apellidos o Nombres (uno o ambos).");
+    if (mvChecked) {
+      const q = mvValue.trim();
+      if (!q) throw new Error("Ingresa identificación o nombre para Mercado de Valores.");
+      if (/^\d+$/.test(q) && q.length !== 13) {
+        throw new Error("Para Mercado de Valores: si ingresas solo dígitos, el RUC debe tener 13 dígitos.");
       }
-      // Contrato backend: "APELLIDOS|NOMBRES"
-      items.push({ tipo: "interpol", valor: `${a}|${n}` });
+      items.push({ tipo: "mercado_valores", valor: q });
+    }
+
+    if (interpolChecked) {
+      const ap = interpolApellidos.trim();
+      const no = interpolNombres.trim();
+
+      // Validación: al menos uno
+      if (!ap && !no) {
+        throw new Error("INTERPOL: ingresa Apellidos o Nombres (al menos uno).");
+      }
+
+      // 'valor' obligatorio en el schema → lo llenamos con el campo no vacío
+      const valor = ap || no;
+
+      items.push({
+        tipo: "interpol",
+        valor,                          // requerido por el schema
+        apellidos: ap || undefined,     // libre elección
+        nombres: no || undefined
+      });
     }
 
     if (items.length === 0) throw new Error("Selecciona al menos una página a consultar.");
@@ -90,7 +108,6 @@ export default function QueryForm() {
       setJobId(resp.job_id);
       setJobStatus(resp.status ?? "queued");
 
-      // Polling cada 3s
       pollRef.current = setInterval(async () => {
         try {
           const st = await getJobStatus(resp.job_id);
@@ -107,14 +124,14 @@ export default function QueryForm() {
             setIsSubmitting(false);
           }
         } catch (err) {
-          setError(err.message);
+          setError(err.message || "Failed to fetch");
           clearInterval(pollRef.current);
           pollRef.current = null;
           setIsSubmitting(false);
         }
       }, 3000);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to fetch");
       setIsSubmitting(false);
     }
   }
@@ -123,11 +140,13 @@ export default function QueryForm() {
     setRucChecked(true);
     setDeudasChecked(false);
     setDenunciasChecked(false);
+    setMvChecked(false);
     setInterpolChecked(false);
 
     setRucValue("");
     setDeudasValue("");
     setDenunciasValue("");
+    setMvValue("");
     setInterpolApellidos("");
     setInterpolNombres("");
 
@@ -198,7 +217,7 @@ export default function QueryForm() {
           </div>
         )}
 
-        {/* Denuncias (Fiscalías) */}
+        {/* Denuncias */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input
             type="checkbox"
@@ -224,8 +243,34 @@ export default function QueryForm() {
           </div>
         )}
 
-        {/* INTERPOL (Notificaciones rojas) */}
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Mercado de Valores (Supercias) – automático */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={mvChecked}
+            onChange={(e) => setMvChecked(e.target.checked)}
+            disabled={isSubmitting}
+          />
+          <strong>Mercado de Valores (Supercias)</strong>
+        </label>
+        {mvChecked && (
+          <div style={{ margin: "8px 0 16px 24px" }}>
+            <input
+              type="text"
+              placeholder="Identificación (RUC 13 dígitos) o Nombre de la entidad"
+              value={mvValue}
+              onChange={(e) => setMvValue(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <small style={{ color: "#666" }}>
+              Detección automática: si ingresas solo dígitos, debe ser RUC de 13 dígitos; caso contrario se tomará como nombre.
+            </small>
+          </div>
+        )}
+
+        {/* INTERPOL – libre elección (Apellidos y/o Nombres) */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <input
             type="checkbox"
             checked={interpolChecked}
@@ -235,41 +280,30 @@ export default function QueryForm() {
           <strong>INTERPOL – Notificaciones rojas</strong>
         </label>
         {interpolChecked && (
-          <div style={{ margin: "8px 0 16px 24px", display: "grid", gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Apellidos (ej.: MACIAS VILLAMAR) — opcional si llenas Nombres"
-              value={interpolApellidos}
-              onChange={(e) => setInterpolApellidos(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
-            <input
-              type="text"
-              placeholder="Nombres (ej.: JOSE ADOLFO) — opcional si llenas Apellidos"
-              value={interpolNombres}
-              onChange={(e) => setInterpolNombres(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
+          <div style={{ margin: "8px 0 16px 24px" }}>
+            <div style={{ display: "grid", gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Apellidos (opcional si llenas Nombres)"
+                value={interpolApellidos}
+                onChange={(e) => setInterpolApellidos(e.target.value)}
+                disabled={isSubmitting}
+                style={{ width: "100%", padding: 8 }}
+              />
+              <input
+                type="text"
+                placeholder="Nombres (opcional si llenas Apellidos)"
+                value={interpolNombres}
+                onChange={(e) => setInterpolNombres(e.target.value)}
+                disabled={isSubmitting}
+                style={{ width: "100%", padding: 8 }}
+              />
+            </div>
             <small style={{ color: "#666" }}>
-              Se permite usar solo apellidos, solo nombres, o ambos. Se enviará como "APELLIDOS|NOMBRES".
+              Puedes llenar solo Apellidos, solo Nombres, o ambos.
             </small>
           </div>
         )}
-
-        {/* Opciones
-        <div style={{ marginTop: 12 }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={headless}
-              onChange={(e) => setHeadless(e.target.checked)}
-              disabled={isSubmitting}
-            />
-            Ejecutar headless (no recomendado por CAPTCHA)
-          </label>
-        </div> */}
 
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
           <button type="submit" disabled={isSubmitting} style={{ padding: "8px 16px" }}>
@@ -281,17 +315,11 @@ export default function QueryForm() {
         </div>
       </form>
 
-      {/* Estado */}
       <div style={{ marginTop: 16 }}>
         {jobId && (
           <div style={{ padding: 12, background: "#f7f7f7", borderRadius: 8 }}>
             <div><strong>Job ID:</strong> {jobId}</div>
             <div><strong>Estado:</strong> {jobStatus || "–"}</div>
-            {jobStatus === "running" && (
-              <div style={{ marginTop: 8, color: "#666" }}>
-                Ejecutando en el backend… recuerda que hay espera entre páginas (configurable).
-              </div>
-            )}
           </div>
         )}
         {error && (
@@ -301,7 +329,6 @@ export default function QueryForm() {
         )}
       </div>
 
-      {/* Resultado */}
       {resultData && (
         <div style={{ marginTop: 16, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
           <h3>Resultado</h3>
@@ -311,7 +338,9 @@ export default function QueryForm() {
                 <strong>{tipo}:</strong>{" "}
                 {payload?.screenshot_path
                   ? <span>{payload.screenshot_path}</span>
-                  : <em>Sin datos o falló la captura.</em>}
+                  : payload?.error
+                    ? <em>{payload.error}</em>
+                    : <em>Sin datos o falló la captura.</em>}
               </li>
             ))}
           </ul>
