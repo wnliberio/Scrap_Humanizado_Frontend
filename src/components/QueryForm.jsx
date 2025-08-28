@@ -3,13 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import { createConsultas, getJobStatus } from "../lib/api";
 
 export default function QueryForm() {
-  const [rucChecked, setRucChecked] = useState(true);
+  const [rucChecked, setRucChecked] = useState(false);
   const [deudasChecked, setDeudasChecked] = useState(false);
   const [denunciasChecked, setDenunciasChecked] = useState(false);
   const [mvChecked, setMvChecked] = useState(false);
   const [interpolChecked, setInterpolChecked] = useState(false);
   const [googleChecked, setGoogleChecked] = useState(false);
-  const [contraloriaChecked, setContraloriaChecked] = useState(false); // <-- NUEVO
+  const [contraloriaChecked, setContraloriaChecked] = useState(false);
+
+  // NUEVO: Supercias Persona
+  const [spChecked, setSpChecked] = useState(false);
+  const [spValue, setSpValue] = useState("");
 
   const [rucValue, setRucValue] = useState("");
   const [deudasValue, setDeudasValue] = useState("");
@@ -24,7 +28,7 @@ export default function QueryForm() {
   const [googleQuery, setGoogleQuery] = useState("");
 
   // CONTRALORÍA
-  const [contraloriaCedula, setContraloriaCedula] = useState(""); // <-- NUEVO
+  const [contraloriaCedula, setContraloriaCedula] = useState("");
 
   const [headless, setHeadless] = useState(false);
 
@@ -92,12 +96,22 @@ export default function QueryForm() {
       items.push({ tipo: "google", valor: q });
     }
 
-    if (contraloriaChecked) { // <-- NUEVO
+    if (contraloriaChecked) {
       const c = contraloriaCedula.trim();
       if (!/^\d{10}$/.test(c)) {
         throw new Error("Contraloría: la cédula debe tener exactamente 10 dígitos.");
       }
       items.push({ tipo: "contraloria", valor: c });
+    }
+
+    // NUEVO: Supercias – Persona (auto: 10 dígitos = Identificación, caso contrario Nombre)
+    if (spChecked) {
+      const v = spValue.trim();
+      if (!v) throw new Error("Supercias Persona: ingresa Cédula (10 dígitos) o Nombre.");
+      if (/^\d+$/.test(v) && v.length !== 10) {
+        throw new Error("Supercias Persona: si ingresas solo dígitos, la cédula debe tener 10 dígitos.");
+      }
+      items.push({ tipo: "supercias_persona", valor: v });
     }
 
     if (items.length === 0) throw new Error("Selecciona al menos una página a consultar.");
@@ -155,13 +169,14 @@ export default function QueryForm() {
   }
 
   function resetAll() {
-    setRucChecked(true);
+    setRucChecked(false);
     setDeudasChecked(false);
     setDenunciasChecked(false);
     setMvChecked(false);
     setInterpolChecked(false);
     setGoogleChecked(false);
-    setContraloriaChecked(false); // <-- NUEVO
+    setContraloriaChecked(false);
+    setSpChecked(false);
 
     setRucValue("");
     setDeudasValue("");
@@ -170,7 +185,8 @@ export default function QueryForm() {
     setInterpolApellidos("");
     setInterpolNombres("");
     setGoogleQuery("");
-    setContraloriaCedula(""); // <-- NUEVO
+    setContraloriaCedula("");
+    setSpValue("");
 
     setHeadless(false);
     setJobId(null);
@@ -182,11 +198,7 @@ export default function QueryForm() {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
-      <h2>Consultas públicas</h2>
-      <p style={{ marginTop: 4, color: "#666" }}>
-        Marca las páginas, ingresa los datos requeridos y presiona “Consultar”.
-        El backend ejecuta cada página en secuencia y al final verás las rutas de las capturas.
-      </p>
+      <h2>Criterios de Consulta</h2>
 
       <form onSubmit={handleSubmit} style={{ marginTop: 12, border: "1px solid #ddd", borderRadius: 8, padding: 16 }}>
         {/* RUC */}
@@ -264,7 +276,7 @@ export default function QueryForm() {
           </div>
         )}
 
-        {/* CONTRALORÍA – DDJJ (cédula 10 dígitos) */}
+        {/* CONTRALORÍA – DDJJ */}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <input
             type="checkbox"
@@ -286,6 +298,32 @@ export default function QueryForm() {
             />
             <small style={{ color: "#666" }}>
               Se resolverá automáticamente el captcha y se guardará la captura final.
+            </small>
+          </div>
+        )}
+
+        {/* NUEVO: Supercias – Consulta de Persona */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={spChecked}
+            onChange={(e) => setSpChecked(e.target.checked)}
+            disabled={isSubmitting}
+          />
+          <strong>Supercias – Consulta de Persona</strong>
+        </label>
+        {spChecked && (
+          <div style={{ margin: "8px 0 16px 24px" }}>
+            <input
+              type="text"
+              placeholder="Cédula (10 dígitos) o Nombre"
+              value={spValue}
+              onChange={(e) => setSpValue(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <small style={{ color: "#666" }}>
+              Detección automática: si ingresas 10 dígitos, usa Identificación; caso contrario se usará Nombre.
             </small>
           </div>
         )}
@@ -337,3 +375,4 @@ export default function QueryForm() {
     </div>
   );
 }
+
