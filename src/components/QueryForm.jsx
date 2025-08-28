@@ -1,4 +1,3 @@
-// src/components/QueryForm.jsx
 import { useEffect, useRef, useState } from "react";
 import { createConsultas, getJobStatus } from "../lib/api";
 
@@ -14,6 +13,12 @@ export default function QueryForm() {
   // NUEVO: Supercias Persona
   const [spChecked, setSpChecked] = useState(false);
   const [spValue, setSpValue] = useState("");
+
+  // NUEVO: Predios (submenú y campos)
+  const [prediosOpen, setPrediosOpen] = useState(false);
+  const [predioQuitoChecked, setPredioQuitoChecked] = useState(false);
+  const [predioMantaChecked, setPredioMantaChecked] = useState(false); // placeholder
+  const [predioQuitoNombres, setPredioQuitoNombres] = useState("");
 
   const [rucValue, setRucValue] = useState("");
   const [deudasValue, setDeudasValue] = useState("");
@@ -104,7 +109,7 @@ export default function QueryForm() {
       items.push({ tipo: "contraloria", valor: c });
     }
 
-    // NUEVO: Supercias – Persona (auto: 10 dígitos = Identificación, caso contrario Nombre)
+    // EXISTENTE: Supercias – Persona (auto: 10 dígitos = Identificación, si no Nombre)
     if (spChecked) {
       const v = spValue.trim();
       if (!v) throw new Error("Supercias Persona: ingresa Cédula (10 dígitos) o Nombre.");
@@ -112,6 +117,18 @@ export default function QueryForm() {
         throw new Error("Supercias Persona: si ingresas solo dígitos, la cédula debe tener 10 dígitos.");
       }
       items.push({ tipo: "supercias_persona", valor: v });
+    }
+
+    // NUEVO: Predio Quito
+    if (predioQuitoChecked) {
+      const qn = predioQuitoNombres.trim();
+      if (qn.length < 3) throw new Error("Predio Quito: ingresa Apellidos y Nombres.");
+      items.push({ tipo: "predio_quito", valor: qn });
+    }
+
+    // Predio Manta (placeholder)
+    if (predioMantaChecked) {
+      throw new Error("Predio Manta aún no está disponible.");
     }
 
     if (items.length === 0) throw new Error("Selecciona al menos una página a consultar.");
@@ -177,6 +194,12 @@ export default function QueryForm() {
     setGoogleChecked(false);
     setContraloriaChecked(false);
     setSpChecked(false);
+
+    // NUEVO: predios
+    setPrediosOpen(false);
+    setPredioQuitoChecked(false);
+    setPredioMantaChecked(false);
+    setPredioQuitoNombres("");
 
     setRucValue("");
     setDeudasValue("");
@@ -302,7 +325,7 @@ export default function QueryForm() {
           </div>
         )}
 
-        {/* NUEVO: Supercias – Consulta de Persona */}
+        {/* EXISTENTE: Supercias – Consulta de Persona */}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <input
             type="checkbox"
@@ -327,6 +350,60 @@ export default function QueryForm() {
             </small>
           </div>
         )}
+
+        {/* ============= NUEVA SECCIÓN: Consulta de Predios ============= */}
+        <div style={{ marginTop: 16, borderTop: "1px dashed #ddd", paddingTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setPrediosOpen((v) => !v)}
+            disabled={isSubmitting}
+            style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: "#0b74de", fontWeight: 600 }}
+          >
+            {prediosOpen ? "▼" : "►"} Consulta de Predios
+          </button>
+
+          {prediosOpen && (
+            <div style={{ marginTop: 8 }}>
+              {/* Predio Quito */}
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={predioQuitoChecked}
+                  onChange={(e) => setPredioQuitoChecked(e.target.checked)}
+                  disabled={isSubmitting}
+                />
+                <strong>Predio Quito</strong>
+              </label>
+              {predioQuitoChecked && (
+                <div style={{ margin: "8px 0 16px 24px" }}>
+                  <input
+                    type="text"
+                    placeholder='Apellidos y Nombres (p. ej.: "VELA VASCO MARCO ANTONIO")'
+                    value={predioQuitoNombres}
+                    onChange={(e) => setPredioQuitoNombres(e.target.value)}
+                    disabled={isSubmitting}
+                    style={{ width: "100%", padding: 8 }}
+                  />
+                  <small style={{ color: "#666" }}>
+                    Se consultará en pam.quito.gob.ec con resolución de captcha automática.
+                  </small>
+                </div>
+              )}
+
+              {/* Predio Manta (placeholder) */}
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={predioMantaChecked}
+                  onChange={(e) => setPredioMantaChecked(e.target.checked)}
+                  disabled
+                />
+                <span style={{ color: "#999" }}>Predio Manta (próximamente)</span>
+              </label>
+            </div>
+          )}
+        </div>
+        {/* ============================================================= */}
 
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
           <button type="submit" disabled={isSubmitting} style={{ padding: "8px 16px" }}>
@@ -359,20 +436,34 @@ export default function QueryForm() {
             {Object.entries(resultData).map(([tipo, payload]) => (
               <li key={tipo} style={{ marginBottom: 8 }}>
                 <strong>{tipo}:</strong>{" "}
-                {payload?.screenshot_path
-                  ? <span>{payload.screenshot_path}</span>
-                  : payload?.error
-                    ? <em>{payload.error}</em>
-                    : <em>Sin datos o falló la captura.</em>}
+                {payload?.screenshot_path ? (
+                  <span>
+                    {payload.screenshot_path}
+                    {/* Si hay una segunda captura (historial), la mostramos también */}
+                    {payload?.screenshot_historial_path && (
+                      <div style={{ marginTop: 4 }}>
+                        <em>Historial:</em> {payload.screenshot_historial_path}
+                      </div>
+                    )}
+                    {payload?.scenario && (
+                      <div style={{ marginTop: 4, color: "#666" }}>
+                        <small>Escenario: {payload.scenario}</small>
+                      </div>
+                    )}
+                  </span>
+                ) : payload?.error ? (
+                  <em>{payload.error}</em>
+                ) : (
+                  <em>Sin datos o falló la captura.</em>
+                )}
               </li>
             ))}
           </ul>
           <small style={{ color: "#666" }}>
-            (Mostramos solo la ruta de la captura; más adelante lo uniremos en un .docx.)
+            (Mostramos solo la ruta de la(s) captura(s); más adelante lo uniremos en un .docx.)
           </small>
         </div>
       )}
     </div>
   );
 }
-
