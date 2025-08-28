@@ -1,3 +1,4 @@
+// src/components/QueryForm.jsx
 import { useEffect, useRef, useState } from "react";
 import { createConsultas, getJobStatus } from "../lib/api";
 
@@ -7,15 +8,23 @@ export default function QueryForm() {
   const [denunciasChecked, setDenunciasChecked] = useState(false);
   const [mvChecked, setMvChecked] = useState(false);
   const [interpolChecked, setInterpolChecked] = useState(false);
+  const [googleChecked, setGoogleChecked] = useState(false);
+  const [contraloriaChecked, setContraloriaChecked] = useState(false); // <-- NUEVO
 
   const [rucValue, setRucValue] = useState("");
   const [deudasValue, setDeudasValue] = useState("");
   const [denunciasValue, setDenunciasValue] = useState("");
   const [mvValue, setMvValue] = useState("");
 
-  // INTERPOL (libre elección)
+  // INTERPOL
   const [interpolApellidos, setInterpolApellidos] = useState("");
   const [interpolNombres, setInterpolNombres] = useState("");
+
+  // GOOGLE
+  const [googleQuery, setGoogleQuery] = useState("");
+
+  // CONTRALORÍA
+  const [contraloriaCedula, setContraloriaCedula] = useState(""); // <-- NUEVO
 
   const [headless, setHeadless] = useState(false);
 
@@ -65,21 +74,30 @@ export default function QueryForm() {
     if (interpolChecked) {
       const ap = interpolApellidos.trim();
       const no = interpolNombres.trim();
-
-      // Validación: al menos uno
       if (!ap && !no) {
         throw new Error("INTERPOL: ingresa Apellidos o Nombres (al menos uno).");
       }
-
-      // 'valor' obligatorio en el schema → lo llenamos con el campo no vacío
       const valor = ap || no;
-
       items.push({
         tipo: "interpol",
-        valor,                          // requerido por el schema
-        apellidos: ap || undefined,     // libre elección
-        nombres: no || undefined
+        valor,
+        apellidos: ap || undefined,
+        nombres: no || undefined,
       });
+    }
+
+    if (googleChecked) {
+      const q = googleQuery.trim();
+      if (q.length < 2) throw new Error("Google: ingresa al menos 2 caracteres para la búsqueda.");
+      items.push({ tipo: "google", valor: q });
+    }
+
+    if (contraloriaChecked) { // <-- NUEVO
+      const c = contraloriaCedula.trim();
+      if (!/^\d{10}$/.test(c)) {
+        throw new Error("Contraloría: la cédula debe tener exactamente 10 dígitos.");
+      }
+      items.push({ tipo: "contraloria", valor: c });
     }
 
     if (items.length === 0) throw new Error("Selecciona al menos una página a consultar.");
@@ -142,6 +160,8 @@ export default function QueryForm() {
     setDenunciasChecked(false);
     setMvChecked(false);
     setInterpolChecked(false);
+    setGoogleChecked(false);
+    setContraloriaChecked(false); // <-- NUEVO
 
     setRucValue("");
     setDeudasValue("");
@@ -149,6 +169,8 @@ export default function QueryForm() {
     setMvValue("");
     setInterpolApellidos("");
     setInterpolNombres("");
+    setGoogleQuery("");
+    setContraloriaCedula(""); // <-- NUEVO
 
     setHeadless(false);
     setJobId(null);
@@ -169,138 +191,101 @@ export default function QueryForm() {
       <form onSubmit={handleSubmit} style={{ marginTop: 12, border: "1px solid #ddd", borderRadius: 8, padding: 16 }}>
         {/* RUC */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={rucChecked}
-            onChange={(e) => setRucChecked(e.target.checked)}
-            disabled={isSubmitting}
-          />
+          <input type="checkbox" checked={rucChecked} onChange={(e) => setRucChecked(e.target.checked)} disabled={isSubmitting} />
           <strong>Consulta RUC (SRI)</strong>
         </label>
         {rucChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input
-              type="text"
-              placeholder="RUC (13 dígitos)"
-              value={rucValue}
-              onChange={(e) => setRucValue(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
+            <input type="text" placeholder="RUC (13 dígitos)" value={rucValue} onChange={(e) => setRucValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
             <small style={{ color: "#666" }}>Ej.: 2300531528001</small>
           </div>
         )}
 
         {/* Deudas */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={deudasChecked}
-            onChange={(e) => setDeudasChecked(e.target.checked)}
-            disabled={isSubmitting}
-          />
+          <input type="checkbox" checked={deudasChecked} onChange={(e) => setDeudasChecked(e.target.checked)} disabled={isSubmitting} />
           <strong>Deudas firmes/impugnadas (SRI)</strong>
         </label>
         {deudasChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input
-              type="text"
-              placeholder="Cédula (10) o RUC (13). Si lo dejas vacío, usamos el RUC de arriba (si está marcado)."
-              value={deudasValue}
-              onChange={(e) => setDeudasValue(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
-            <small style={{ color: "#666" }}>
-              Si lo dejas vacío y marcaste RUC, se reutiliza ese valor.
-            </small>
+            <input type="text" placeholder="Cédula (10) o RUC (13). Si lo dejas vacío, usamos el RUC de arriba (si está marcado)." value={deudasValue} onChange={(e) => setDeudasValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <small style={{ color: "#666" }}>Si lo dejas vacío y marcaste RUC, se reutiliza ese valor.</small>
           </div>
         )}
 
         {/* Denuncias */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={denunciasChecked}
-            onChange={(e) => setDenunciasChecked(e.target.checked)}
-            disabled={isSubmitting}
-          />
+          <input type="checkbox" checked={denunciasChecked} onChange={(e) => setDenunciasChecked(e.target.checked)} disabled={isSubmitting} />
           <strong>Denuncias (Fiscalías)</strong>
         </label>
         {denunciasChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input
-              type="text"
-              placeholder="Nombres completos (p. ej.: Juan Perez)"
-              value={denunciasValue}
-              onChange={(e) => setDenunciasValue(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
-            <small style={{ color: "#666" }}>
-              Requerido: ingresa los nombres completos.
-            </small>
+            <input type="text" placeholder="Nombres completos (p. ej.: Juan Perez)" value={denunciasValue} onChange={(e) => setDenunciasValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <small style={{ color: "#666" }}>Requerido: ingresa los nombres completos.</small>
           </div>
         )}
 
-        {/* Mercado de Valores (Supercias) – automático */}
+        {/* Mercado de Valores */}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <input
-            type="checkbox"
-            checked={mvChecked}
-            onChange={(e) => setMvChecked(e.target.checked)}
-            disabled={isSubmitting}
-          />
+          <input type="checkbox" checked={mvChecked} onChange={(e) => setMvChecked(e.target.checked)} disabled={isSubmitting} />
           <strong>Mercado de Valores (Supercias)</strong>
         </label>
         {mvChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input
-              type="text"
-              placeholder="Identificación (RUC 13 dígitos) o Nombre de la entidad"
-              value={mvValue}
-              onChange={(e) => setMvValue(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
-            <small style={{ color: "#666" }}>
-              Detección automática: si ingresas solo dígitos, debe ser RUC de 13 dígitos; caso contrario se tomará como nombre.
-            </small>
+            <input type="text" placeholder="Identificación (RUC 13 dígitos) o Nombre de la entidad" value={mvValue} onChange={(e) => setMvValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <small style={{ color: "#666" }}>Detección automática: si ingresas solo dígitos, debe ser RUC de 13 dígitos; caso contrario se tomará como nombre.</small>
           </div>
         )}
 
-        {/* INTERPOL – libre elección (Apellidos y/o Nombres) */}
+        {/* INTERPOL */}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <input
-            type="checkbox"
-            checked={interpolChecked}
-            onChange={(e) => setInterpolChecked(e.target.checked)}
-            disabled={isSubmitting}
-          />
+          <input type="checkbox" checked={interpolChecked} onChange={(e) => setInterpolChecked(e.target.checked)} disabled={isSubmitting} />
           <strong>INTERPOL – Notificaciones rojas</strong>
         </label>
         {interpolChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
             <div style={{ display: "grid", gap: 8 }}>
-              <input
-                type="text"
-                placeholder="Apellidos (opcional si llenas Nombres)"
-                value={interpolApellidos}
-                onChange={(e) => setInterpolApellidos(e.target.value)}
-                disabled={isSubmitting}
-                style={{ width: "100%", padding: 8 }}
-              />
-              <input
-                type="text"
-                placeholder="Nombres (opcional si llenas Apellidos)"
-                value={interpolNombres}
-                onChange={(e) => setInterpolNombres(e.target.value)}
-                disabled={isSubmitting}
-                style={{ width: "100%", padding: 8 }}
-              />
+              <input type="text" placeholder="Apellidos (opcional si llenas Nombres)" value={interpolApellidos} onChange={(e) => setInterpolApellidos(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+              <input type="text" placeholder="Nombres (opcional si llenas Apellidos)" value={interpolNombres} onChange={(e) => setInterpolNombres(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
             </div>
+            <small style={{ color: "#666" }}>Puedes llenar solo Apellidos, solo Nombres, o ambos.</small>
+          </div>
+        )}
+
+        {/* GOOGLE */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input type="checkbox" checked={googleChecked} onChange={(e) => setGoogleChecked(e.target.checked)} disabled={isSubmitting} />
+          <strong>Google – Búsqueda simple</strong>
+        </label>
+        {googleChecked && (
+          <div style={{ margin: "8px 0 16px 24px" }}>
+            <input type="text" placeholder='Texto a buscar (p. ej.: "VELA VASCO MARCO ANTONIO")' value={googleQuery} onChange={(e) => setGoogleQuery(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <small style={{ color: "#666" }}>Se abrirá Google, se ejecutará la búsqueda y se guardará una captura de la SERP.</small>
+          </div>
+        )}
+
+        {/* CONTRALORÍA – DDJJ (cédula 10 dígitos) */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={contraloriaChecked}
+            onChange={(e) => setContraloriaChecked(e.target.checked)}
+            disabled={isSubmitting}
+          />
+          <strong>Contraloría – Declaraciones Juradas</strong>
+        </label>
+        {contraloriaChecked && (
+          <div style={{ margin: "8px 0 16px 24px" }}>
+            <input
+              type="text"
+              placeholder="Cédula (exactamente 10 dígitos)"
+              value={contraloriaCedula}
+              onChange={(e) => setContraloriaCedula(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
             <small style={{ color: "#666" }}>
-              Puedes llenar solo Apellidos, solo Nombres, o ambos.
+              Se resolverá automáticamente el captcha y se guardará la captura final.
             </small>
           </div>
         )}
