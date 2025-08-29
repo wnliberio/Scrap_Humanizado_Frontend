@@ -17,8 +17,9 @@ export default function QueryForm() {
   // NUEVO: Predios (submenú y campos)
   const [prediosOpen, setPrediosOpen] = useState(false);
   const [predioQuitoChecked, setPredioQuitoChecked] = useState(false);
-  const [predioMantaChecked, setPredioMantaChecked] = useState(false); // placeholder
+  const [predioMantaChecked, setPredioMantaChecked] = useState(false);
   const [predioQuitoNombres, setPredioQuitoNombres] = useState("");
+  const [predioMantaValor, setPredioMantaValor] = useState("");
 
   const [rucValue, setRucValue] = useState("");
   const [deudasValue, setDeudasValue] = useState("");
@@ -126,9 +127,23 @@ export default function QueryForm() {
       items.push({ tipo: "predio_quito", valor: qn });
     }
 
-    // Predio Manta (placeholder)
+    // NUEVO: Predio Manta
     if (predioMantaChecked) {
-      throw new Error("Predio Manta aún no está disponible.");
+      const vm = predioMantaValor.trim();
+      if (!vm) throw new Error("Predio Manta: ingresa Cédula/RUC/Pasaporte o Apellidos/Nombres.");
+
+      const isCedula = /^\d{10}$/.test(vm);
+      const isRuc = /^\d{13}$/.test(vm);
+      const isPassport = /^[A-Za-z]{3}\d{6}$/.test(vm);
+      const isName =
+        /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]+$/.test(vm) && vm.replace(/\s+/g, " ").trim().length >= 3;
+
+      if (!(isCedula || isRuc || isPassport || isName)) {
+        throw new Error(
+          "Predio Manta: usa Cédula (10), RUC (13), Pasaporte (AAA999999) o Apellidos/Nombres."
+        );
+      }
+      items.push({ tipo: "predio_manta", valor: vm });
     }
 
     if (items.length === 0) throw new Error("Selecciona al menos una página a consultar.");
@@ -200,6 +215,7 @@ export default function QueryForm() {
     setPredioQuitoChecked(false);
     setPredioMantaChecked(false);
     setPredioQuitoNombres("");
+    setPredioMantaValor("");
 
     setRucValue("");
     setDeudasValue("");
@@ -227,23 +243,23 @@ export default function QueryForm() {
         {/* RUC */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={rucChecked} onChange={(e) => setRucChecked(e.target.checked)} disabled={isSubmitting} />
-          <strong>Consulta RUC (SRI)</strong>
+          <strong>RUC (SRI)</strong>
         </label>
         {rucChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input type="text" placeholder="RUC (13 dígitos)" value={rucValue} onChange={(e) => setRucValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
-            <small style={{ color: "#666" }}>Ej.: 2300531528001</small>
+            <input type="text" placeholder="RUC" value={rucValue} onChange={(e) => setRucValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <small style={{ color: "#666" }}>Ej.: 1800587626001</small>
           </div>
         )}
 
         {/* Deudas */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={deudasChecked} onChange={(e) => setDeudasChecked(e.target.checked)} disabled={isSubmitting} />
-          <strong>Deudas firmes/impugnadas (SRI)</strong>
+          <strong>Deudas Firmes/Impugnadas/Facilidades de Pago (SRI)</strong>
         </label>
         {deudasChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input type="text" placeholder="Cédula (10) o RUC (13). Si lo dejas vacío, usamos el RUC de arriba (si está marcado)." value={deudasValue} onChange={(e) => setDeudasValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <input type="text" placeholder="Cédula / RUC" value={deudasValue} onChange={(e) => setDeudasValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
             <small style={{ color: "#666" }}>Si lo dejas vacío y marcaste RUC, se reutiliza ese valor.</small>
           </div>
         )}
@@ -251,11 +267,11 @@ export default function QueryForm() {
         {/* Denuncias */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={denunciasChecked} onChange={(e) => setDenunciasChecked(e.target.checked)} disabled={isSubmitting} />
-          <strong>Denuncias (Fiscalías)</strong>
+          <strong>Denuncias o Noticias de Delito (Fiscalía)</strong>
         </label>
         {denunciasChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input type="text" placeholder="Nombres completos (p. ej.: Juan Perez)" value={denunciasValue} onChange={(e) => setDenunciasValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <input type="text" placeholder="Nombres completos (Nombres Apellidos)" value={denunciasValue} onChange={(e) => setDenunciasValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
             <small style={{ color: "#666" }}>Requerido: ingresa los nombres completos.</small>
           </div>
         )}
@@ -267,7 +283,7 @@ export default function QueryForm() {
         </label>
         {mvChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
-            <input type="text" placeholder="Identificación (RUC 13 dígitos) o Nombre de la entidad" value={mvValue} onChange={(e) => setMvValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
+            <input type="text" placeholder="RUC / Nombre de la entidad" value={mvValue} onChange={(e) => setMvValue(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
             <small style={{ color: "#666" }}>Detección automática: si ingresas solo dígitos, debe ser RUC de 13 dígitos; caso contrario se tomará como nombre.</small>
           </div>
         )}
@@ -275,7 +291,7 @@ export default function QueryForm() {
         {/* INTERPOL */}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <input type="checkbox" checked={interpolChecked} onChange={(e) => setInterpolChecked(e.target.checked)} disabled={isSubmitting} />
-          <strong>INTERPOL – Notificaciones rojas</strong>
+          <strong>Notificaciones rojas (Interpol)</strong>
         </label>
         {interpolChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
@@ -290,12 +306,12 @@ export default function QueryForm() {
         {/* GOOGLE */}
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <input type="checkbox" checked={googleChecked} onChange={(e) => setGoogleChecked(e.target.checked)} disabled={isSubmitting} />
-          <strong>Google – Búsqueda simple</strong>
+          <strong>Google (Búsqueda simple)</strong>
         </label>
         {googleChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
             <input type="text" placeholder='Texto a buscar (p. ej.: "VELA VASCO MARCO ANTONIO")' value={googleQuery} onChange={(e) => setGoogleQuery(e.target.value)} disabled={isSubmitting} style={{ width: "100%", padding: 8 }} />
-            <small style={{ color: "#666" }}>Se abrirá Google, se ejecutará la búsqueda y se guardará una captura de la SERP.</small>
+            <small style={{ color: "#666" }}>Se realiza una consulta en Internet por nombres </small>
           </div>
         )}
 
@@ -307,20 +323,20 @@ export default function QueryForm() {
             onChange={(e) => setContraloriaChecked(e.target.checked)}
             disabled={isSubmitting}
           />
-          <strong>Contraloría – Declaraciones Juradas</strong>
+          <strong>Declaraciones Patrimoniales Juradas (Contraloría)</strong>
         </label>
         {contraloriaChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
             <input
               type="text"
-              placeholder="Cédula (exactamente 10 dígitos)"
+              placeholder="Cédula"
               value={contraloriaCedula}
               onChange={(e) => setContraloriaCedula(e.target.value)}
               disabled={isSubmitting}
               style={{ width: "100%", padding: 8 }}
             />
             <small style={{ color: "#666" }}>
-              Se resolverá automáticamente el captcha y se guardará la captura final.
+              Consulta de declaración patrimonial por cédula del cliente
             </small>
           </div>
         )}
@@ -333,20 +349,20 @@ export default function QueryForm() {
             onChange={(e) => setSpChecked(e.target.checked)}
             disabled={isSubmitting}
           />
-          <strong>Supercias – Consulta de Persona</strong>
+          <strong>Acciones (Supercias)</strong>
         </label>
         {spChecked && (
           <div style={{ margin: "8px 0 16px 24px" }}>
             <input
               type="text"
-              placeholder="Cédula (10 dígitos) o Nombre"
+              placeholder="Cédula / Nombres"
               value={spValue}
               onChange={(e) => setSpValue(e.target.value)}
               disabled={isSubmitting}
               style={{ width: "100%", padding: 8 }}
             />
             <small style={{ color: "#666" }}>
-              Detección automática: si ingresas 10 dígitos, usa Identificación; caso contrario se usará Nombre.
+              Consulta de acciones por cédula del cliente o nombres.
             </small>
           </div>
         )}
@@ -385,21 +401,36 @@ export default function QueryForm() {
                     style={{ width: "100%", padding: 8 }}
                   />
                   <small style={{ color: "#666" }}>
-                    Se consultará en pam.quito.gob.ec con resolución de captcha automática.
+                    Consulta de predios en Quito por Apellidos y Nombres.
                   </small>
                 </div>
               )}
 
-              {/* Predio Manta (placeholder) */}
+              {/* Predio Manta */}
               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   type="checkbox"
                   checked={predioMantaChecked}
                   onChange={(e) => setPredioMantaChecked(e.target.checked)}
-                  disabled
+                  disabled={isSubmitting}
                 />
-                <span style={{ color: "#999" }}>Predio Manta (próximamente)</span>
+                <strong>Predio Manta</strong>
               </label>
+              {predioMantaChecked && (
+                <div style={{ margin: "8px 0 16px 24px" }}>
+                  <input
+                    type="text"
+                    placeholder='Cédula / RUC, Pasaporte (AAA999999) o Apellidos/Nombres'
+                    value={predioMantaValor}
+                    onChange={(e) => setPredioMantaValor(e.target.value)}
+                    disabled={isSubmitting}
+                    style={{ width: "100%", padding: 8 }}
+                  />
+                  <small style={{ color: "#666" }}>
+                    Consulta de predios en Manta por Cédula, RUC, Pasaporte o Apellidos y Nombres.
+                  </small>
+                </div>
+              )}
             </div>
           )}
         </div>
