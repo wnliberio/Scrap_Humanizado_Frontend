@@ -1,35 +1,33 @@
 // src/lib/api.js
-const API_ROOT = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = "/api"; // importante: el backend expone /api/...
 
-async function httpJson(url, options = {}) {
-  const res = await fetch(url, {
+export async function createConsultas(items, opts = {}) {
+  const body = {
+    items,
+    modo: "async",
+    headless: !!opts.headless,
+    informe_meta: opts.informe_meta || null,
+    generate_report: !!opts.generate_report,
+  };
+
+  const res = await fetch(`${API_BASE}/consultas`, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    ...options,
+    body: JSON.stringify(body),
   });
-  const text = await res.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { /* noop */ }
 
   if (!res.ok) {
-    const detail = data?.detail || data || text || `HTTP ${res.status}`;
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const txt = await res.text().catch(() => "");
+    throw new Error(`createConsultas: ${res.status} ${txt}`);
   }
-  return data;
-}
-
-export async function createConsultas(items, { headless = false } = {}) {
-  // POST /api/consultas
-  return httpJson(`${API_ROOT}/api/consultas`, {
-    method: "POST",
-    body: JSON.stringify({
-      items,
-      modo: "async",
-      headless,
-    }),
-  });
+  return await res.json();
 }
 
 export async function getJobStatus(jobId) {
-  // GET /api/consultas/{job_id}
-  return httpJson(`${API_ROOT}/api/consultas/${jobId}`);
+  const res = await fetch(`${API_BASE}/consultas/${encodeURIComponent(jobId)}/status`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`getJobStatus: ${res.status} ${txt}`);
+  }
+  return await res.json();
 }

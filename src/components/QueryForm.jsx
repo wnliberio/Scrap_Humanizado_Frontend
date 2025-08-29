@@ -1,3 +1,4 @@
+// src/components/QueryForm.jsx
 import { useEffect, useRef, useState } from "react";
 import { createConsultas, getJobStatus } from "../lib/api";
 
@@ -35,6 +36,12 @@ export default function QueryForm() {
 
   // CONTRALORÍA
   const [contraloriaCedula, setContraloriaCedula] = useState("");
+
+  // === NUEVO: metadatos para el informe ===
+  const [tipoAlerta, setTipoAlerta] = useState("");
+  const [montoUsd, setMontoUsd] = useState("");
+  const [fechaAlerta, setFechaAlerta] = useState("");
+  const [generateReport, setGenerateReport] = useState(false); // Fase 0: desmarcado
 
   const [headless, setHeadless] = useState(false);
 
@@ -150,6 +157,31 @@ export default function QueryForm() {
     return items;
   }
 
+  function buildInformeMetaIfAny() {
+    if (!generateReport) return null;
+
+    const tipo = (tipoAlerta || "").trim();
+    const monto = Number(montoUsd);
+    const fecha = (fechaAlerta || "").trim();
+
+    if (!tipo) throw new Error("Informe: ingresa el Tipo de Alerta.");
+    if (!Number.isFinite(monto) || monto <= 0) throw new Error("Informe: ingresa un Monto válido (> 0).");
+    if (!fecha) throw new Error("Informe: selecciona la Fecha de la Alerta.");
+
+    // Validar que la fecha NO sea futura
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const f = new Date(fecha);
+    f.setHours(0,0,0,0);
+    if (f > today) throw new Error("Informe: la fecha de la alerta no puede ser futura.");
+
+    return {
+      tipo_alerta: tipo,
+      monto_usd: Math.round(monto * 100) / 100,
+      fecha_alerta: fecha,
+    };
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -161,6 +193,8 @@ export default function QueryForm() {
     let items;
     try {
       items = buildItems();
+      // Solo valida y construye meta si el usuario pide generar informe
+      var informeMeta = buildInformeMetaIfAny();
     } catch (err) {
       setError(err.message);
       return;
@@ -168,7 +202,11 @@ export default function QueryForm() {
 
     try {
       setIsSubmitting(true);
-      const resp = await createConsultas(items, { headless });
+      const resp = await createConsultas(items, {
+        headless,
+        informe_meta: informeMeta,           // NUEVO (opcional)
+        generate_report: !!informeMeta,      // Fase 0: el backend lo ignora
+      });
       setJobId(resp.job_id);
       setJobStatus(resp.status ?? "queued");
 
@@ -226,6 +264,12 @@ export default function QueryForm() {
     setGoogleQuery("");
     setContraloriaCedula("");
     setSpValue("");
+
+    // NUEVO: metadatos informe
+    setTipoAlerta("");
+    setMontoUsd("");
+    setFechaAlerta("");
+    setGenerateReport(false);
 
     setHeadless(false);
     setJobId(null);
@@ -436,6 +480,52 @@ export default function QueryForm() {
         </div>
         {/* ============================================================= */}
 
+        {/* ============= NUEVA SECCIÓN: Datos para el Informe ============= */}
+        <div style={{ marginTop: 16, borderTop: "1px dashed #ddd", paddingTop: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={generateReport}
+              onChange={(e) => setGenerateReport(e.target.checked)}
+              disabled={isSubmitting}
+            />
+            <strong>Generar informe final (DOCX)</strong>
+          </label>
+
+          <div style={{ margin: "8px 0 16px 24px", display: "grid", gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Tipo de Alerta (p. ej.: Venta de Vehículo)"
+              value={tipoAlerta}
+              onChange={(e) => setTipoAlerta(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Monto (USD)"
+              value={montoUsd}
+              onChange={(e) => setMontoUsd(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <input
+              type="date"
+              value={fechaAlerta}
+              onChange={(e) => setFechaAlerta(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+              max={new Date().toISOString().slice(0,10)} // no permitir futuro
+            />
+            <small style={{ color: "#666" }}>
+              Fase 0: estos datos solo se envían al backend para dejarlos listos. La creación del DOCX vendrá en la siguiente fase.
+            </small>
+          </div>
+        </div>
+        {/* =============================================================== */}
+
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
           <button type="submit" disabled={isSubmitting} style={{ padding: "8px 16px" }}>
             {isSubmitting ? "Procesando..." : "Consultar"}
@@ -470,7 +560,6 @@ export default function QueryForm() {
                 {payload?.screenshot_path ? (
                   <span>
                     {payload.screenshot_path}
-                    {/* Si hay una segunda captura (historial), la mostramos también */}
                     {payload?.screenshot_historial_path && (
                       <div style={{ marginTop: 4 }}>
                         <em>Historial:</em> {payload.screenshot_historial_path}
