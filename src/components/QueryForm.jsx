@@ -1,6 +1,6 @@
 // src/components/QueryForm.jsx
 import { useEffect, useRef, useState } from "react";
-import { createConsultas, getJobStatus } from "../lib/api";
+import { createConsultas, getJobStatus, listReports, downloadReportUrl } from "../lib/api";
 
 export default function QueryForm() {
   const [rucChecked, setRucChecked] = useState(false);
@@ -37,12 +37,6 @@ export default function QueryForm() {
   // CONTRALORÍA
   const [contraloriaCedula, setContraloriaCedula] = useState("");
 
-  // === NUEVO: metadatos para el informe ===
-  const [tipoAlerta, setTipoAlerta] = useState("");
-  const [montoUsd, setMontoUsd] = useState("");
-  const [fechaAlerta, setFechaAlerta] = useState("");
-  const [generateReport, setGenerateReport] = useState(false); // Fase 0: desmarcado
-
   const [headless, setHeadless] = useState(false);
 
   const [jobId, setJobId] = useState(null);
@@ -50,6 +44,20 @@ export default function QueryForm() {
   const [resultData, setResultData] = useState(null);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // NUEVO: meta-informe
+  const [tipoAlerta, setTipoAlerta] = useState("");
+  const [montoUsd, setMontoUsd] = useState("");
+  const [fechaAlerta, setFechaAlerta] = useState("");
+  const [generateReport, setGenerateReport] = useState(true);
+
+  // NUEVO (Panel de reportes)
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [repDesde, setRepDesde] = useState("");
+  const [repHasta, setRepHasta] = useState("");
+  const [reports, setReports] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [repError, setRepError] = useState(null);
 
   const pollRef = useRef(null);
 
@@ -157,29 +165,19 @@ export default function QueryForm() {
     return items;
   }
 
-  function buildInformeMetaIfAny() {
-    if (!generateReport) return null;
-
-    const tipo = (tipoAlerta || "").trim();
-    const monto = Number(montoUsd);
-    const fecha = (fechaAlerta || "").trim();
-
-    if (!tipo) throw new Error("Informe: ingresa el Tipo de Alerta.");
-    if (!Number.isFinite(monto) || monto <= 0) throw new Error("Informe: ingresa un Monto válido (> 0).");
-    if (!fecha) throw new Error("Informe: selecciona la Fecha de la Alerta.");
-
-    // Validar que la fecha NO sea futura
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const f = new Date(fecha);
-    f.setHours(0,0,0,0);
-    if (f > today) throw new Error("Informe: la fecha de la alerta no puede ser futura.");
-
-    return {
-      tipo_alerta: tipo,
-      monto_usd: Math.round(monto * 100) / 100,
-      fecha_alerta: fecha,
-    };
+  function validateMeta() {
+    // Tipo de alerta opcional, pero si envías monto/fecha, validamos ligerito
+    if (montoUsd && Number(montoUsd) < 0) {
+      throw new Error("El monto debe ser cero o positivo.");
+    }
+    if (fechaAlerta) {
+      const d = new Date(fechaAlerta);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (d > today) {
+        throw new Error("La fecha de alerta no puede ser posterior a hoy.");
+      }
+    }
   }
 
   async function handleSubmit(e) {
@@ -193,8 +191,7 @@ export default function QueryForm() {
     let items;
     try {
       items = buildItems();
-      // Solo valida y construye meta si el usuario pide generar informe
-      var informeMeta = buildInformeMetaIfAny();
+      validateMeta();
     } catch (err) {
       setError(err.message);
       return;
@@ -204,8 +201,12 @@ export default function QueryForm() {
       setIsSubmitting(true);
       const resp = await createConsultas(items, {
         headless,
-        informe_meta: informeMeta,           // NUEVO (opcional)
-        generate_report: !!informeMeta,      // Fase 0: el backend lo ignora
+        meta: {
+          tipo_alerta: tipoAlerta.trim(),
+          monto_usd: montoUsd ? Number(montoUsd) : null,
+          fecha_alerta: fechaAlerta || null,
+        },
+        generate_report: generateReport,
       });
       setJobId(resp.job_id);
       setJobStatus(resp.status ?? "queued");
@@ -265,11 +266,11 @@ export default function QueryForm() {
     setContraloriaCedula("");
     setSpValue("");
 
-    // NUEVO: metadatos informe
+    // NUEVO: meta
     setTipoAlerta("");
     setMontoUsd("");
     setFechaAlerta("");
-    setGenerateReport(false);
+    setGenerateReport(true);
 
     setHeadless(false);
     setJobId(null);
@@ -279,11 +280,74 @@ export default function QueryForm() {
     if (pollRef.current) clearInterval(pollRef.current);
   }
 
+  // --- Reports panel helpers ---
+  async function fetchReports() {
+    setRepError(null);
+    setLoadingReports(true);
+    try {
+      const data = await listReports({ fechaDesde: repDesde || undefined, fechaHasta: repHasta || undefined, onlyDocx: true });
+      setReports(data);
+    } catch (e) {
+      setRepError(e.message || "Error al listar reportes");
+    } finally {
+      setLoadingReports(false);
+    }
+  }
+
+  useEffect(() => {
+    if (reportsOpen) fetchReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportsOpen]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
       <h2>Criterios de Consulta</h2>
 
       <form onSubmit={handleSubmit} style={{ marginTop: 12, border: "1px solid #ddd", borderRadius: 8, padding: 16 }}>
+        {/* === META-INFORME (NUEVO) === */}
+        <div style={{ padding: 12, marginBottom: 12, background: "#9f3d3dff", borderRadius: 8, border: "1px dashed #ccc" }}>
+          <h3 style={{ marginBottom: 8 }}>Datos del Informe</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px", gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Tipo de Alerta (p. ej.: Venta vehículo, Venta casa, etc.)"
+              value={tipoAlerta}
+              onChange={(e) => setTipoAlerta(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Monto (USD)"
+              value={montoUsd}
+              onChange={(e) => setMontoUsd(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+            <input
+              type="date"
+              value={fechaAlerta}
+              max={todayStr}
+              onChange={(e) => setFechaAlerta(e.target.value)}
+              disabled={isSubmitting}
+              style={{ width: "100%", padding: 8 }}
+            />
+          </div>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={generateReport}
+              onChange={(e) => setGenerateReport(e.target.checked)}
+              disabled={isSubmitting}
+            />
+            <span>Generar Informe (.docx) al terminar</span>
+          </label>
+        </div>
+
         {/* RUC */}
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={rucChecked} onChange={(e) => setRucChecked(e.target.checked)} disabled={isSubmitting} />
@@ -480,59 +544,17 @@ export default function QueryForm() {
         </div>
         {/* ============================================================= */}
 
-        {/* ============= NUEVA SECCIÓN: Datos para el Informe ============= */}
-        <div style={{ marginTop: 16, borderTop: "1px dashed #ddd", paddingTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={generateReport}
-              onChange={(e) => setGenerateReport(e.target.checked)}
-              disabled={isSubmitting}
-            />
-            <strong>Generar informe final (DOCX)</strong>
-          </label>
-
-          <div style={{ margin: "8px 0 16px 24px", display: "grid", gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Tipo de Alerta (p. ej.: Venta de Vehículo)"
-              value={tipoAlerta}
-              onChange={(e) => setTipoAlerta(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Monto (USD)"
-              value={montoUsd}
-              onChange={(e) => setMontoUsd(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-            />
-            <input
-              type="date"
-              value={fechaAlerta}
-              onChange={(e) => setFechaAlerta(e.target.value)}
-              disabled={isSubmitting}
-              style={{ width: "100%", padding: 8 }}
-              max={new Date().toISOString().slice(0,10)} // no permitir futuro
-            />
-            <small style={{ color: "#666" }}>
-              Fase 0: estos datos solo se envían al backend para dejarlos listos. La creación del DOCX vendrá en la siguiente fase.
-            </small>
-          </div>
-        </div>
-        {/* =============================================================== */}
-
-        <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+        <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="submit" disabled={isSubmitting} style={{ padding: "8px 16px" }}>
             {isSubmitting ? "Procesando..." : "Consultar"}
           </button>
           <button type="button" onClick={resetAll} disabled={isSubmitting} style={{ padding: "8px 16px" }}>
             Limpiar
           </button>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+            <input type="checkbox" checked={headless} onChange={(e) => setHeadless(e.target.checked)} disabled={isSubmitting} />
+            <span>Headless</span>
+          </label>
         </div>
       </form>
 
@@ -560,6 +582,7 @@ export default function QueryForm() {
                 {payload?.screenshot_path ? (
                   <span>
                     {payload.screenshot_path}
+                    {/* Si hay una segunda captura (historial), la mostramos también */}
                     {payload?.screenshot_historial_path && (
                       <div style={{ marginTop: 4 }}>
                         <em>Historial:</em> {payload.screenshot_historial_path}
@@ -584,6 +607,72 @@ export default function QueryForm() {
           </small>
         </div>
       )}
+
+      {/* ===== Panel Reportes guardados (usa los endpoints existentes) ===== */}
+      <div style={{ marginTop: 24, borderTop: "1px solid #eee", paddingTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => setReportsOpen(v => !v)}
+          style={{ background: "transparent", border: "none", color: "#0b74de", fontWeight: 600, cursor: "pointer" }}
+        >
+          {reportsOpen ? "▼" : "►"} Reportes guardados
+        </button>
+
+        {reportsOpen && (
+          <div style={{ marginTop: 12, background: "#40b8acff", border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <label>Desde:</label>
+              <input type="date" value={repDesde} max={todayStr} onChange={(e) => setRepDesde(e.target.value)} />
+              <label>Hasta:</label>
+              <input type="date" value={repHasta} max={todayStr} onChange={(e) => setRepHasta(e.target.value)} />
+              <button type="button" onClick={fetchReports} disabled={loadingReports}>Filtrar</button>
+              <button type="button" onClick={() => { setRepDesde(""); setRepHasta(""); fetchReports(); }} disabled={loadingReports}>Limpiar</button>
+            </div>
+
+            {repError && (
+              <div style={{ marginTop: 12, padding: 10, border: "1px solid #fbb", background: "rgba(245, 248, 248, 1)", borderRadius: 6, color: "#900" }}>
+                {repError}
+              </div>
+            )}
+
+            <div style={{ marginTop: 12, overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ background: "#656c8aff" }}>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: 8 }}>Acción</th>
+                    <th style={{ textAlign: "left", padding: 8 }}>Tipo</th>
+                    <th style={{ textAlign: "left", padding: 8 }}>Monto</th>
+                    <th style={{ textAlign: "left", padding: 8 }}>Fecha Alerta</th>
+                    <th style={{ textAlign: "left", padding: 8 }}>Creado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingReports ? (
+                    <tr><td colSpan={5} style={{ padding: 12 }}>Cargando…</td></tr>
+                  ) : reports.length === 0 ? (
+                    <tr><td colSpan={5} style={{ padding: 12 }}>Sin resultados</td></tr>
+                  ) : (
+                    reports.map(r => (
+                      <tr key={r.id} style={{ borderTop: "1px solid #eaf3f4ff" }}>
+                        <td style={{ padding: 8 }}>
+                          <a href={downloadReportUrl(r.id)} target="_blank" rel="noreferrer">📥 Descargar</a>
+                        </td>
+                        <td style={{ padding: 8 }}>{r.tipo_alerta || "—"}</td>
+                        <td style={{ padding: 8 }}>
+                          {typeof r.monto_usd === "number" ? `$${r.monto_usd.toLocaleString("es-EC")}` : "—"}
+                        </td>
+                        <td style={{ padding: 8 }}>{r.fecha_alerta || "—"}</td>
+                        <td style={{ padding: 8 }}>{r.created_at}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+      {/* ================================================================== */}
     </div>
   );
 }
