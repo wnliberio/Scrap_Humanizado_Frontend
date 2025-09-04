@@ -1,5 +1,6 @@
 import Sidebar from './components/Sidebar'
 import QueryForm from './components/QueryForm'
+import Dashboard from './pages/Dashboard'
 
 export default function App() {
   return (
@@ -9,7 +10,7 @@ export default function App() {
 
       {/* Contenido scrollable */}
       <main className="flex-1 ml-80 overflow-y-auto">
-        <header className="sticky top-0 z-10 bg-stone-900/80 backdrop-blur border-b border-stone-800">
+        <header className="sticky top-0 z-10 bg-stone-900/60 backdrop-blur border-b border-stone-800">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold">
               <span className="bg-clip-text text-transparent bg-brand-gradient">
@@ -27,11 +28,11 @@ export default function App() {
               Marca uno o más criterios, ingresa los datos y presiona <b>Consultar</b>.
               <b></b>.
             </p>
-            <QueryForm />
+            <Dashboard />
           </div>
 
           <footer className="py-8 text-center text-sm text-stone-400">
-            Consultas públicas —  en desarrollo
+            -------
           </footer>
         </section>
       </main>

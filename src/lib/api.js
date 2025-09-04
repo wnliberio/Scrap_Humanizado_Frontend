@@ -63,3 +63,34 @@ export async function listReports({ fechaDesde, fechaHasta, onlyDocx = true } = 
 export function downloadReportUrl(reportId) {
   return `${BASE}/reports/${reportId}/download`;
 }
+
+// ------- Lista (de_lista) --------
+export async function listLista({ estado, fechaDesde, fechaHasta, q } = {}) {
+  const qs = new URLSearchParams();
+  if (estado && estado !== "Todos") qs.set("estado", estado);
+  if (fechaDesde) qs.set("fecha_desde", fechaDesde);
+  if (fechaHasta) qs.set("fecha_hasta", fechaHasta);
+  if (q && q.trim()) qs.set("q", q.trim());
+  const url = `${BASE}/lista${qs.toString() ? `?${qs.toString()}` : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`listLista: ${res.status}`);
+  return res.json();
+}
+
+export async function updateListaEstado(id, { estado, mensaje_error } = {}) {
+  const res = await fetch(`${BASE}/lista/${id}/estado`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ estado, mensaje_error: mensaje_error ?? null }),
+  });
+  if (!res.ok) throw new Error(`updateListaEstado: ${res.status}`);
+  return res.json();
+}
+
+// Reporte por job
+export async function getReportByJob(jobId) {
+  const res = await fetch(`${BASE}/reports/by-job/${jobId}`);
+  if (!res.ok) throw new Error(`getReportByJob: ${res.status}`);
+  return res.json();
+}
+

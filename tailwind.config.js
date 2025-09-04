@@ -12,7 +12,7 @@ export default {
         charcoal: "#2B2B2B",
       },
       boxShadow: {
-        soft: "0 10px 25px rgba(0,0,0,0.25)"
+        soft: "0 10px 25px rgba(245, 234, 234, 0.25)"
       },
       backgroundImage: {
         'hero-gradient': "linear-gradient(135deg, #1f2937 0%, #0b0f14 60%)",

@@ -34,7 +34,7 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-auto p-6 text-xs text-stone-300">
-          © {new Date().getFullYear()} QueryBot. Todos los derechos reservados.
+          #© {new Date().getFullYear()} QueryBot. Todos los derechos ...
         </div>
       </div>
     </aside>
