@@ -17,13 +17,25 @@ const styles = {
   input: { width: "100%", padding: 8 },
   button: { padding: "10px 14px", background: "#0b74de", color: "#fff", border: 0, borderRadius: 6, cursor: "pointer", fontWeight: 600 },
   counters: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 12 },
-  card: (bg, color="#111") => ({ background: bg, color, padding: 14, borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,.08)", fontWeight: 700, textAlign: "center" }),
+  card: (bg, color = "#111") => ({ background: bg, color, padding: 14, borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,.08)", fontWeight: 700, textAlign: "center" }),
   table: { width: "100%", borderCollapse: "collapse", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.08)", borderRadius: 8, overflow: "hidden" },
   th: { background: "linear-gradient(135deg, #667eea, #764ba2)", color: "#fff", textTransform: "uppercase", fontSize: 12, letterSpacing: 1, padding: 12, textAlign: "left" },
   td: { padding: 12, borderBottom: "1px solid #eee" },
-  badge: (bg, color="#fff") => ({ display: "inline-block", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: bg, color }),
+  badge: (bg, color = "#fff") => ({ display: "inline-block", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: bg, color }),
   btnMini: { padding: "6px 10px", background: "#0b74de", color: "#fff", border: 0, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700 },
-  modalBg: { position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 },
+  modalBg: { 
+    position: "fixed", 
+    top: 0, 
+    left: 0, 
+    width: "100%", 
+    height: "100%", 
+    background: "rgba(0,0,0,0.8)", // Más oscuro para bloquear visualmente
+    display: "flex", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    zIndex: 99999, // Más alto para estar encima de todo
+    backdropFilter: "blur(2px)", // Desenfoque del fondo
+  },
   modal: { width: 720, maxWidth: "95vw", background: "#fff", borderRadius: 8, overflow: "hidden", boxShadow: "0 14px 40px rgba(0,0,0,.25)" },
   modalHead: { background: "linear-gradient(90deg, #0b74de, #1d4ed8)", color: "#fff", padding: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "space-between" },
   modalBody: { padding: 16 },
@@ -97,6 +109,9 @@ export default function Dashboard() {
 
   // ---------- Detalles (4 escenarios) ----------
   function openDetalles(row) {
+    // Bloquear scroll del body
+    document.body.style.overflow = 'hidden';
+    
     if (row.estado === "Pendiente") {
       setChecks({ interpol: true, supercias: true, ruc: true });
       setModal({ type: "select", row });
@@ -216,10 +231,10 @@ export default function Dashboard() {
 
       {/* Contadores */}
       <div style={styles.counters}>
-        <div style={styles.card("#fff8e1")}><div>Pendientes</div><div style={{fontSize:28}}>{counts.Pendiente}</div></div>
-        <div style={styles.card("#e0f2fe")}><div>Procesando</div><div style={{fontSize:28}}>{counts.Procesando}</div></div>
-        <div style={styles.card("#e8f5e9")}><div>Procesados</div><div style={{fontSize:28}}>{counts.Procesado}</div></div>
-        <div style={styles.card("#ffebee")}><div>Errores</div><div style={{fontSize:28}}>{counts.Error}</div></div>
+        <div style={styles.card("#fff8e1")}><div>Pendientes</div><div style={{ fontSize: 28 }}>{counts.Pendiente}</div></div>
+        <div style={styles.card("#e0f2fe")}><div>Procesando</div><div style={{ fontSize: 28 }}>{counts.Procesando}</div></div>
+        <div style={styles.card("#e8f5e9")}><div>Procesados</div><div style={{ fontSize: 28 }}>{counts.Procesado}</div></div>
+        <div style={styles.card("#ffebee")}><div>Errores</div><div style={{ fontSize: 28 }}>{counts.Error}</div></div>
       </div>
 
       {/* Tabla */}
@@ -254,7 +269,7 @@ export default function Dashboard() {
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td style={{...styles.td, textAlign:"center"}} colSpan={10}>Sin registros</td></tr>
+            <tr><td style={{ ...styles.td, textAlign: "center" }} colSpan={10}>Sin registros</td></tr>
           )}
         </tbody>
       </table>
@@ -271,7 +286,7 @@ export default function Dashboard() {
                 {modal.type === "summary" && "Resumen de Consulta"}
                 {modal.type === "error" && "Resumen de Consulta"}
               </div>
-              <button onClick={() => setModal(null)} style={{ background:"transparent", color:"#fff", border:0, fontSize:22, cursor:"pointer" }}>×</button>
+              <button onClick={() => setModal(null)} style={{ background: "transparent", color: "#fff", border: 0, fontSize: 24, cursor: "pointer" }}>×</button>
             </div>
 
             {/* Cuerpo */}
@@ -279,41 +294,119 @@ export default function Dashboard() {
               {/* Pendiente -> selector */}
               {modal.type === "select" && (
                 <>
-                  <div style={{background:"#e6f7ff", border:"1px solid #b3e5fc", padding:12, borderRadius:8, marginBottom:14}}>
-                    <div><strong>Registro seleccionado:</strong></div>
+                  <div style={{ background: "#f0f9ff", border: "1px solid #b3e5fc", padding: 16, borderRadius: 8, marginBottom: 20, color: '#0c4a6e', fontSize: '16px', lineHeight: '1.5' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '15px' }}>Registro seleccionado:</div>
                     <div>Nombre: {modal.row.apellido} {modal.row.nombre}</div>
                     <div>CI/RUC: {modal.row.ci || "—"} {modal.row.ruc ? ` / ${modal.row.ruc}` : ""}</div>
                   </div>
 
-                  <div style={{fontWeight:700, marginBottom:8}}>Selecciona las páginas que deseas consultar:</div>
+                  <div style={{ fontWeight: 700, marginBottom: 16, fontSize: '16px', color: '#111827' }}>Selecciona las páginas que deseas consultar:</div>
 
-                  <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
-                    <div style={{border:"1px solid #eee", borderRadius:8, padding:12}}>
-                      <label style={{display:"flex", gap:8, alignItems:"center"}}>
-                        <input type="checkbox" checked={checks.interpol} onChange={e => setChecks(s => ({...s, interpol: e.target.checked}))}/>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, '@media (max-width: 640px)': { gridTemplateColumns: '1fr' } }}>
+                    <div style={{ border: "2px solid #e5e7eb", borderRadius: 8, padding: 16, backgroundColor: '#fafafa', transition: 'border-color 0.2s ease' }}>
+                      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input type="checkbox" checked={checks.interpol} onChange={e => setChecks(s => ({ ...s, interpol: e.target.checked }))} />
                         <div>
-                          <div style={{fontWeight:800}}>INTERPOL - Notificaciones rojas</div>
-                          <small>Requiere: nombres, apellidos</small>
+                          <div style={{
+                            fontWeight: '700',
+                            color: '#111827',
+                            marginBottom: '4px',
+                            fontSize: '15px'
+                          }}>
+                            INTERPOL - Notificaciones rojas
+                          </div>
+                          <div style={{
+                            color: '#6b7280',
+                            fontSize: '12px',
+                            lineHeight: '1.4'
+                          }}>
+                            Requiere: nombres, apellidos
+                          </div>
                         </div>
                       </label>
                     </div>
 
-                    <div style={{border:"1px solid #eee", borderRadius:8, padding:12}}>
-                      <label style={{display:"flex", gap:8, alignItems:"center"}}>
-                        <input type="checkbox" checked={checks.supercias} onChange={e => setChecks(s => ({...s, supercias: e.target.checked}))}/>
+                    <div style={{
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      backgroundColor: '#fafafa',
+                      transition: 'border-color 0.2s ease'
+                    }}>
+                      <label style={{
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start',
+                        cursor: 'pointer',
+                        color: '#1f2937',
+                        fontSize: '14px',
+                        lineHeight: '1.5'
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={checks.supercias}
+                          onChange={e => setChecks(s => ({ ...s, supercias: e.target.checked }))}
+                          style={{ marginTop: '2px', transform: 'scale(1.1)' }}
+                        />
                         <div>
-                          <div style={{fontWeight:800}}>Superintendencia de Compañías - Personas</div>
-                          <small>Requiere: CI (10 dígitos)</small>
+                          <div style={{
+                            fontWeight: '700',
+                            color: '#111827',
+                            marginBottom: '4px',
+                            fontSize: '15px'
+                          }}>
+                            Superintendencia de Compañías - Personas
+                          </div>
+                          <div style={{
+                            color: '#6b7280',
+                            fontSize: '12px',
+                            lineHeight: '1.4'
+                          }}>
+                            Requiere: CI (10 dígitos)
+                          </div>
                         </div>
                       </label>
                     </div>
 
-                    <div style={{border:"1px solid #eee", borderRadius:8, padding:12}}>
-                      <label style={{display:"flex", gap:8, alignItems:"center"}}>
-                        <input type="checkbox" checked={checks.ruc} onChange={e => setChecks(s => ({...s, ruc: e.target.checked}))}/>
+                    {/* Opción SRI */}
+                    <div style={{
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      backgroundColor: '#fafafa',
+                      transition: 'border-color 0.2s ease'
+                    }}>
+                      <label style={{
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start',
+                        cursor: 'pointer',
+                        color: '#1f2937',
+                        fontSize: '14px',
+                        lineHeight: '1.5'
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={checks.ruc}
+                          onChange={e => setChecks(s => ({ ...s, ruc: e.target.checked }))}
+                          style={{ marginTop: '2px', transform: 'scale(1.1)' }}
+                        />
                         <div>
-                          <div style={{fontWeight:800}}>SRI - Consulta RUC</div>
-                          <small>Requiere: RUC (13 dígitos)</small>
+                          <div style={{
+                            fontWeight: '700',
+                            color: '#111827',
+                            marginBottom: '4px',
+                            fontSize: '15px'
+                          }}>
+                            SRI - Consulta RUC
+                          </div>
+                          <div style={{
+                            color: '#6b7280',
+                            fontSize: '12px',
+                            lineHeight: '1.4'
+                          }}>
+                            Requiere: RUC (13 dígitos)
+                          </div>
                         </div>
                       </label>
                     </div>
@@ -323,29 +416,77 @@ export default function Dashboard() {
 
               {/* Procesando */}
               {modal.type === "processing" && (
-                <div style={{textAlign:"center", padding:"30px 10px"}}>
-                  <div style={{fontSize:18, fontWeight:800, marginBottom:10}}>Este flujo está siendo procesado en la cola.</div>
-                  <div>Por favor espere...</div>
-                  {modal.jobId && (<div style={{marginTop:10, color:"#666"}}><small>Job: {modal.jobId}</small></div>)}
+                <div style={{ textAlign: "center", padding: "30px 10px" }}>
+                  <div style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    marginBottom: 12,
+                    color: '#111827'
+                  }}>
+                    Este flujo está siendo procesado en la cola.
+                  </div>
+                  <div style={{ color: '#4b5563', fontSize: '16px' }}>
+                    Por favor espere...
+                  </div>
+                  {modal.jobId && (
+                    <div style={{
+                      marginTop: 12,
+                      color: '#6b7280',
+                      fontSize: '14px'
+                    }}>
+                      Job: {modal.jobId}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Resumen – OK */}
               {modal.type === "summary" && (
                 <>
-                  <div style={{background:"#e6f4ea", border:"1px solid #c8e6c9", padding:12, borderRadius:8, marginBottom:14}}>
-                    <div><strong>Procesamiento completado exitosamente</strong></div>
-                    <div>Procesado: {formatDate(Date.now())}</div>
-                    <div>Registro: {modal.row.apellido} {modal.row.nombre} - {modal.row.ci || "—"}</div>
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '2px solid #22c55e',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    color: '#14532d',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                  }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '15px' }}>
+                      Procesamiento completado exitosamente
+                    </div>
+                    <div style={{ marginBottom: '4px' }}>
+                      <strong>Procesado:</strong> {formatDate(Date.now())}
+                    </div>
+                    <div>
+                      <strong>Registro:</strong> {modal.row.apellido} {modal.row.nombre} - {modal.row.ci || "—"}
+                    </div>
                   </div>
 
-                  <div style={{marginTop:12}}>
+                  <div style={{ marginTop: 16 }}>
                     {modal.report ? (
-                      <a href={downloadReportUrl(modal.report.id)} style={{...styles.button, display:"inline-block", textDecoration:"none"}}>
-                        Descargar Informe Completo
+                      <a
+                        href={downloadReportUrl(modal.report.id)}
+                        style={{
+                          ...styles.button,
+                          display: "inline-block",
+                          textDecoration: "none"
+                        }}
+                      >
+                        📄 Descargar Informe Completo
                       </a>
                     ) : (
-                      <div style={{color:"#666"}}>No se encontró el reporte (aún). Puedes verificar en “Gestión de Documentos”.</div>
+                      <div style={{
+                        color: '#6b7280',
+                        fontSize: '14px',
+                        padding: '12px',
+                        backgroundColor: '#f9fafb',
+                        borderRadius: '6px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        No se encontró el reporte (aún). Puedes verificar en "Gestión de Documentos".
+                      </div>
                     )}
                   </div>
                 </>
@@ -353,24 +494,64 @@ export default function Dashboard() {
 
               {/* Resumen – Error */}
               {modal.type === "error" && (
-                <div style={{background:"#ffebee", border:"1px solid #ffcdd2", padding:12, borderRadius:8}}>
-                  <div style={{fontWeight:800, marginBottom:8}}>Error en el procesamiento</div>
-                  <div><strong>Mensaje:</strong> {modal.errorMsg || "Error desconocido"}</div>
-                  <div style={{marginTop:8}}>Fecha del error: {formatDate(Date.now())}</div>
+                <div style={{
+                  background: '#fef2f2',
+                  border: '2px solid #ef4444',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  color: '#7f1d1d',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  <div style={{
+                    fontWeight: 700,
+                    marginBottom: 12,
+                    fontSize: '15px'
+                  }}>
+                    ⚠️ Error en el procesamiento
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Mensaje:</strong> {modal.errorMsg || "Error desconocido"}
+                  </div>
+                  <div>
+                    <strong>Fecha del error:</strong> {formatDate(Date.now())}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Pie */}
+
+            {/* Pie del modal */}
             <div style={styles.modalFoot}>
               {modal.type === "select" && (
                 <>
-                  <button onClick={() => setModal(null)} style={{...styles.button, background:"#999"}}>Cancelar</button>
-                  <button onClick={() => handleAgregarACola(modal.row)} style={styles.button}>+ Agregar a Cola</button>
+                  <button
+                    onClick={() => setModal(null)}
+                    style={{
+                      ...styles.button,
+                      backgroundColor: '#6b7280'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => handleAgregarACola(modal.row)}
+                    style={styles.button}
+                  >
+                    + Agregar a Cola
+                  </button>
                 </>
               )}
               {modal.type !== "select" && (
-                <button onClick={() => setModal(null)} style={{...styles.button, background:"#666"}}>Cerrar</button>
+                <button
+                  onClick={() => setModal(null)}
+                  style={{
+                    ...styles.button,
+                    backgroundColor: '#6b7280'
+                  }}
+                >
+                  Cerrar
+                </button>
               )}
             </div>
           </div>

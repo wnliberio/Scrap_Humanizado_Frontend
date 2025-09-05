@@ -8,7 +8,7 @@
 }
 
 body {
-  @apply text-stone-100 bg-stone-900;
+  @apply text-stone-100 bg-stone-100;
 }
 
 .button-primary {
@@ -26,3 +26,33 @@ body {
 .badge {
   @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-stone-800 border border-stone-700;
 }
+
+/* === Overrides de legibilidad para la tabla del Dashboard === */
+table thead th {
+  color: #ffffff !important;           /* cabecera blanca */
+}
+
+/* Celdas del cuerpo: texto oscuro y sin opacidad */
+table tbody td {
+  color: #1f2937 !important;           /* gris muy oscuro */
+  font-weight: 500;                     /* un pelín más grueso */
+}
+
+/* Filas del cuerpo: sin desaturado/opacity y fondo blanco */
+table tbody tr {
+  opacity: 1 !important;
+  filter: none !important;
+  background: #ffffff !important;
+}
+
+/* Hover agradable */
+table tbody tr:hover {
+  background: #f6f9ff !important;
+}
+
+/* Badge de estado: que el texto siempre sea legible */
+.badge,
+.status-chip {
+  color: #ffffff !important;
+}
+

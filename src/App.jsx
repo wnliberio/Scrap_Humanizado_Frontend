@@ -23,11 +23,11 @@ export default function App() {
 
         <section className="max-w-6xl mx-auto px-6 py-8 space-y-6">
           <div className="card">
-            <h2 className="text-xl font-semibold mb-1">! Importante ¡</h2>
+            <h2 className="text-xl font-semibold mb-1">{/*! Importante ¡*/}</h2>
             <p className="text-stone-300 mb-6">
-              Marca uno o más criterios, ingresa los datos y presiona <b>Consultar</b>.
-              <b></b>.
-            </p>
+              {/*Marca uno o más criterios, ingresa los datos y presiona <b>Consultar</b>.*/}
+              <b></b>{/*mas texto*/}</p>
+            {/*<Dashboard />*/}
             <Dashboard />
           </div>
 
