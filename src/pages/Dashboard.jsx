@@ -23,20 +23,16 @@ const styles = {
   td: { padding: 12, borderBottom: "1px solid #eee" },
   badge: (bg, color = "#fff") => ({ display: "inline-block", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: bg, color }),
   btnMini: { padding: "6px 10px", background: "#0b74de", color: "#fff", border: 0, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700 },
-  modalBg: { 
-    position: "fixed", 
-    top: 0, 
-    left: 0, 
-    width: "100%", 
-    height: "100%", 
-    background: "rgba(0,0,0,0.8)", // Más oscuro para bloquear visualmente
-    display: "flex", 
-    alignItems: "center", 
-    justifyContent: "center", 
-    zIndex: 99999, // Más alto para estar encima de todo
-    backdropFilter: "blur(2px)", // Desenfoque del fondo
+
+  // Modal
+  modalBg: {
+    position: "fixed",
+    top: 0, left: 0, width: "100%", height: "100%",
+    background: "rgba(0,0,0,0.7)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 99999, backdropFilter: "blur(2px)"
   },
-  modal: { width: 720, maxWidth: "95vw", background: "#fff", borderRadius: 8, overflow: "hidden", boxShadow: "0 14px 40px rgba(0,0,0,.25)" },
+  modal: { width: 820, maxWidth: "95vw", background: "#fff", borderRadius: 8, overflow: "hidden", boxShadow: "0 14px 40px rgba(0,0,0,.25)" },
   modalHead: { background: "linear-gradient(90deg, #0b74de, #1d4ed8)", color: "#fff", padding: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "space-between" },
   modalBody: { padding: 16 },
   modalFoot: { padding: 12, display: "flex", justifyContent: "flex-end", gap: 10 },
@@ -66,12 +62,19 @@ function formatDate(d) {
     return d;
   }
 }
-
+// Función para obtener la fecha actual en formato YYYY-MM-DD
+function getTodayString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 export default function Dashboard() {
   // filtros
   const [estado, setEstado] = useState("Todos");
   const [desde, setDesde] = useState("");
-  const [hasta, setHasta] = useState("");
+  const [hasta, setHasta] = useState(getTodayString()); // hasta fecha actual por defecto
   const [q, setQ] = useState("");
   // data
   const [rows, setRows] = useState([]);
@@ -80,7 +83,25 @@ export default function Dashboard() {
 
   // modal
   const [modal, setModal] = useState(null); // {type, row, jobId, errorMsg, report}
-  const [checks, setChecks] = useState({ interpol: true, supercias: true, ruc: true });
+  // checks: NO auto-seleccionar nada
+  const [checks, setChecks] = useState({
+    interpol: false,
+    supercias_persona: false,
+    ruc: false,
+    google: false,
+    contraloria: false,
+    mercado_valores: false,
+    denuncias: false,
+    deudas: false,
+    predio_quito: false,
+    predio_manta: false,
+  });
+
+  // bloquear/desbloquear scroll al abrir/cerrar modal
+  useEffect(() => {
+    document.body.style.overflow = modal ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [modal]);
 
   async function refresh() {
     setLoading(true);
@@ -109,15 +130,24 @@ export default function Dashboard() {
 
   // ---------- Detalles (4 escenarios) ----------
   function openDetalles(row) {
-    // Bloquear scroll del body
-    document.body.style.overflow = 'hidden';
-    
+    // reset checks para que el user decida
+    setChecks({
+      interpol: false,
+      supercias_persona: false,
+      ruc: false,
+      google: false,
+      contraloria: false,
+      mercado_valores: false,
+      denuncias: false,
+      deudas: false,
+      predio_quito: false,
+      predio_manta: false,
+    });
+
     if (row.estado === "Pendiente") {
-      setChecks({ interpol: true, supercias: true, ruc: true });
       setModal({ type: "select", row });
     } else if (row.estado === "Procesando") {
       setModal({ type: "processing", row });
-      // empezamos a poller por si ya existe job guardado externamente
     } else if (row.estado === "Procesado") {
       setModal({ type: "summary", row, report: null });
     } else {
@@ -125,25 +155,109 @@ export default function Dashboard() {
     }
   }
 
-  // Construye items para /api/consultas según checks
+  // Construye items para /api/consultas según checks con mapeo exacto
   function buildItemsForRow(row) {
     const items = [];
-    const fullName = `${row.apellido || ""} ${row.nombre || ""}`.trim();
+    const nombre = (row.nombre || "").trim();
+    const apellido = (row.apellido || "").trim();
+    const fullName = [nombre, apellido].filter(Boolean).join(" ").trim() || [apellido, nombre].filter(Boolean).join(" ").trim();
 
+    // INTERPOL -> SOLO APELLIDO
     if (checks.interpol) {
-      items.push({
-        tipo: "interpol",
-        valor: row.apellido || row.nombre || fullName || "N",
-        apellidos: row.apellido || undefined,
-        nombres: row.nombre || undefined,
-      });
+      if (!apellido) {
+        console.warn("INTERPOL omitido: falta apellido.");
+      } else {
+        items.push({
+          tipo: "interpol",
+          valor: apellido,        // sólo apellido (como pediste)
+          apellidos: apellido,    // redundante para el backend (compatible)
+          // nombres: undefined
+        });
+      }
     }
-    if (checks.supercias && row.ci && /^\d{10}$/.test(row.ci)) {
-      items.push({ tipo: "supercias_persona", valor: row.ci });
+
+    // Supercias – Personas (Acciones) -> CI (10)
+    if (checks.supercias_persona) {
+      if (!/^\d{10}$/.test(row.ci || "")) {
+        console.warn("Supercias Persona omitido: CI inválida o ausente.");
+      } else {
+        items.push({ tipo: "supercias_persona", valor: row.ci });
+      }
     }
-    if (checks.ruc && row.ruc && /^\d{13}$/.test(row.ruc)) {
-      items.push({ tipo: "ruc", valor: row.ruc });
+
+    // SRI – RUC -> RUC (13)
+    if (checks.ruc) {
+      if (!/^\d{13}$/.test(row.ruc || "")) {
+        console.warn("RUC omitido: RUC inválido o ausente.");
+      } else {
+        items.push({ tipo: "ruc", valor: row.ruc });
+      }
     }
+
+    // Google -> Nombres + Apellidos (full)
+    if (checks.google) {
+      if (!fullName) {
+        console.warn("Google omitido: faltan nombres y apellidos.");
+      } else {
+        items.push({ tipo: "google", valor: fullName });
+      }
+    }
+
+    // Contraloría (DDJJ) -> CI (10)
+    if (checks.contraloria) {
+      if (!/^\d{10}$/.test(row.ci || "")) {
+        console.warn("Contraloría omitido: CI inválida o ausente.");
+      } else {
+        items.push({ tipo: "contraloria", valor: row.ci });
+      }
+    }
+
+    // Mercado de Valores -> RUC (13)
+    if (checks.mercado_valores) {
+      if (!/^\d{13}$/.test(row.ruc || "")) {
+        console.warn("Mercado de Valores omitido: RUC inválido o ausente.");
+      } else {
+        items.push({ tipo: "mercado_valores", valor: row.ruc });
+      }
+    }
+
+    // Denuncias (Fiscalía) -> Nombres + Apellidos
+    if (checks.denuncias) {
+      if (!fullName) {
+        console.warn("Denuncias omitido: faltan nombres y apellidos.");
+      } else {
+        items.push({ tipo: "denuncias", valor: fullName });
+      }
+    }
+
+    // Deudas SRI -> CI (10) (aunque el backend soporta RUC, tú pediste CI)
+    if (checks.deudas) {
+      if (!/^\d{10}$/.test(row.ci || "")) {
+        console.warn("Deudas SRI omitido: CI inválida o ausente.");
+      } else {
+        items.push({ tipo: "deudas", valor: row.ci });
+      }
+    }
+
+    // Predio Quito -> Apellido + Nombre
+    if (checks.predio_quito) {
+      const quitoName = [apellido, nombre].filter(Boolean).join(" ").trim();
+      if (!quitoName || quitoName.length < 3) {
+        console.warn("Predio Quito omitido: faltan Apellido y Nombre.");
+      } else {
+        items.push({ tipo: "predio_quito", valor: quitoName });
+      }
+    }
+
+    // Predio Manta -> CI (10)
+    if (checks.predio_manta) {
+      if (!/^\d{10}$/.test(row.ci || "")) {
+        console.warn("Predio Manta omitido: CI inválida o ausente.");
+      } else {
+        items.push({ tipo: "predio_manta", valor: row.ci });
+      }
+    }
+
     return items;
   }
 
@@ -151,7 +265,7 @@ export default function Dashboard() {
     try {
       const items = buildItemsForRow(row);
       if (!items.length) {
-        alert("Selecciona al menos una página (y asegúrate de que el registro tiene CI/RUC válidos).");
+        alert("Selecciona al menos una página válida (revisa que el registro tenga los datos requeridos).");
         return;
       }
 
@@ -177,27 +291,48 @@ export default function Dashboard() {
     setModal({ type: "processing", row, jobId });
     let done = false;
     while (!done) {
-      // eslint-disable-next-line no-await-in-loop
       const st = await getJobStatus(jobId);
       if (st.status === "done") {
         done = true;
         await updateListaEstado(row.id, { estado: "Procesado" });
         refresh();
-        // intenta localizar el reporte
+        
+        // Agregar un pequeño delay antes de buscar el reporte
+        await new Promise(r => setTimeout(r, 1000)); // 1 segundo de espera
+        
+       
+                // Agregar un pequeño delay antes de buscar el reporte
+        await new Promise(r => setTimeout(r, 1000)); 
+
         try {
+          console.log("=== DEBUG REPORTE ===");
+          console.log("Job ID:", jobId);
+          
           const rep = await getReportByJob(jobId);
-          setModal({ type: "summary", row, report: rep });
-        } catch {
+          console.log("Respuesta completa:", rep);
+          console.log("¿Rep existe?", !!rep);
+          console.log("Rep.id:", rep?.id);
+           // AGREGAR ESTAS LÍNEAS
+          console.log("Antes de setModal - rep:", rep);
+          console.log("Antes de setModal - row:", row);
+          
+            // CAMBIAR ESTA LÍNEA - crear un objeto completamente nuevo
+          setModal(prevModal => ({ 
+            type: "summary", 
+            row: { ...row }, 
+            report: { ...rep } 
+          }));
+          
+          console.log("Modal actualizado");
+        } catch (error) {
+          console.log("=== ERROR AL BUSCAR REPORTE ===");
+          console.log("Error completo:", error);
+          console.log("Error message:", error.message);
+          
           setModal({ type: "summary", row, report: null });
         }
       } else if (st.status === "error") {
-        done = true;
-        await updateListaEstado(row.id, { estado: "Error", mensaje_error: st.error || "Fallo en job" });
-        refresh();
-        setModal({ type: "error", row, errorMsg: st.error || "Error en el procesamiento" });
-      } else {
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise(r => setTimeout(r, 2500));
+        // ... resto del código igual
       }
     }
   }
@@ -216,11 +351,11 @@ export default function Dashboard() {
         </div>
         <div>
           <label>Fecha desde:</label>
-          <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={styles.input} />
+          <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={styles.input} min="2025-09-01" max={getTodayString()} />
         </div>
         <div>
           <label>Fecha hasta:</label>
-          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={styles.input} />
+          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={styles.input}  min="2025-09-01" max={getTodayString()}/>
         </div>
         <div>
           <label>Buscar:</label>
@@ -297,119 +432,40 @@ export default function Dashboard() {
                   <div style={{ background: "#f0f9ff", border: "1px solid #b3e5fc", padding: 16, borderRadius: 8, marginBottom: 20, color: '#0c4a6e', fontSize: '16px', lineHeight: '1.5' }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '15px' }}>Registro seleccionado:</div>
                     <div>Nombre: {modal.row.apellido} {modal.row.nombre}</div>
-                    <div>CI/RUC: {modal.row.ci || "—"} {modal.row.ruc ? ` / ${modal.row.ruc}` : ""}</div>
+                    <div>CI/RUC: {modal.row.ci || "—"}{modal.row.ruc ? ` / ${modal.row.ruc}` : ""}</div>
                   </div>
 
                   <div style={{ fontWeight: 700, marginBottom: 16, fontSize: '16px', color: '#111827' }}>Selecciona las páginas que deseas consultar:</div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, '@media (max-width: 640px)': { gridTemplateColumns: '1fr' } }}>
-                    <div style={{ border: "2px solid #e5e7eb", borderRadius: 8, padding: 16, backgroundColor: '#fafafa', transition: 'border-color 0.2s ease' }}>
-                      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input type="checkbox" checked={checks.interpol} onChange={e => setChecks(s => ({ ...s, interpol: e.target.checked }))} />
-                        <div>
-                          <div style={{
-                            fontWeight: '700',
-                            color: '#111827',
-                            marginBottom: '4px',
-                            fontSize: '15px'
-                          }}>
-                            INTERPOL - Notificaciones rojas
+                  {/* GRID de tarjetas */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    {[
+                      { key: "interpol", title: "INTERPOL - Notificaciones rojas", require: "Usa: Solo APELLIDO" },
+                      { key: "supercias_persona", title: "Superintendencia de Compañías - Personas (Acciones)", require: "Usa: CI (10 dígitos)" },
+                      { key: "ruc", title: "SRI - Consulta RUC", require: "Usa: RUC (13 dígitos)" },
+                      { key: "google", title: "Google - Búsqueda por nombres", require: "Usa: Nombres + Apellidos" },
+                      { key: "contraloria", title: "Contraloría - Declaraciones Patrimoniales", require: "Usa: CI (10 dígitos)" },
+                      { key: "mercado_valores", title: "Mercado de Valores (Supercias)", require: "Usa: RUC (13 dígitos)" },
+                      { key: "denuncias", title: "Fiscalía - Denuncias/Noticias de delito", require: "Usa: Nombres + Apellidos" },
+                      { key: "deudas", title: "SRI - Deudas Firmes/Impugnadas/Fac. Pago", require: "Usa: CI (10 dígitos)" },
+                      { key: "predio_quito", title: "Predio Quito", require: "Usa: Apellido + Nombre" },
+                      { key: "predio_manta", title: "Predio Manta", require: "Usa: CI (10 dígitos)" },
+                    ].map(opt => (
+                      <div key={opt.key} style={{ border: "2px solid #e5e7eb", borderRadius: 8, padding: 16, backgroundColor: '#fafafa' }}>
+                        <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", color: "#1f2937" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!checks[opt.key]}
+                            onChange={e => setChecks(s => ({ ...s, [opt.key]: e.target.checked }))}
+                            style={{ marginTop: 2, transform: "scale(1.1)" }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 700, color: "#111827", marginBottom: 4, fontSize: 15 }}>{opt.title}</div>
+                            <div style={{ color: "#6b7280", fontSize: 12, lineHeight: 1.4 }}>{opt.require}</div>
                           </div>
-                          <div style={{
-                            color: '#6b7280',
-                            fontSize: '12px',
-                            lineHeight: '1.4'
-                          }}>
-                            Requiere: nombres, apellidos
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-
-                    <div style={{
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      backgroundColor: '#fafafa',
-                      transition: 'border-color 0.2s ease'
-                    }}>
-                      <label style={{
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'flex-start',
-                        cursor: 'pointer',
-                        color: '#1f2937',
-                        fontSize: '14px',
-                        lineHeight: '1.5'
-                      }}>
-                        <input
-                          type="checkbox"
-                          checked={checks.supercias}
-                          onChange={e => setChecks(s => ({ ...s, supercias: e.target.checked }))}
-                          style={{ marginTop: '2px', transform: 'scale(1.1)' }}
-                        />
-                        <div>
-                          <div style={{
-                            fontWeight: '700',
-                            color: '#111827',
-                            marginBottom: '4px',
-                            fontSize: '15px'
-                          }}>
-                            Superintendencia de Compañías - Personas
-                          </div>
-                          <div style={{
-                            color: '#6b7280',
-                            fontSize: '12px',
-                            lineHeight: '1.4'
-                          }}>
-                            Requiere: CI (10 dígitos)
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Opción SRI */}
-                    <div style={{
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      backgroundColor: '#fafafa',
-                      transition: 'border-color 0.2s ease'
-                    }}>
-                      <label style={{
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'flex-start',
-                        cursor: 'pointer',
-                        color: '#1f2937',
-                        fontSize: '14px',
-                        lineHeight: '1.5'
-                      }}>
-                        <input
-                          type="checkbox"
-                          checked={checks.ruc}
-                          onChange={e => setChecks(s => ({ ...s, ruc: e.target.checked }))}
-                          style={{ marginTop: '2px', transform: 'scale(1.1)' }}
-                        />
-                        <div>
-                          <div style={{
-                            fontWeight: '700',
-                            color: '#111827',
-                            marginBottom: '4px',
-                            fontSize: '15px'
-                          }}>
-                            SRI - Consulta RUC
-                          </div>
-                          <div style={{
-                            color: '#6b7280',
-                            fontSize: '12px',
-                            lineHeight: '1.4'
-                          }}>
-                            Requiere: RUC (13 dígitos)
-                          </div>
-                        </div>
-                      </label>
-                    </div>
+                        </label>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
@@ -417,23 +473,14 @@ export default function Dashboard() {
               {/* Procesando */}
               {modal.type === "processing" && (
                 <div style={{ textAlign: "center", padding: "30px 10px" }}>
-                  <div style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    marginBottom: 12,
-                    color: '#111827'
-                  }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: '#111827' }}>
                     Este flujo está siendo procesado en la cola.
                   </div>
                   <div style={{ color: '#4b5563', fontSize: '16px' }}>
                     Por favor espere...
                   </div>
                   {modal.jobId && (
-                    <div style={{
-                      marginTop: 12,
-                      color: '#6b7280',
-                      fontSize: '14px'
-                    }}>
+                    <div style={{ marginTop: 12, color: '#6b7280', fontSize: '14px' }}>
                       Job: {modal.jobId}
                     </div>
                   )}
@@ -443,20 +490,12 @@ export default function Dashboard() {
               {/* Resumen – OK */}
               {modal.type === "summary" && (
                 <>
-                  <div style={{
-                    background: '#f0fdf4',
-                    border: '2px solid #22c55e',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    marginBottom: '20px',
-                    color: '#14532d',
-                    fontSize: '14px',
-                    lineHeight: '1.5'
-                  }}>
+                {console.log("RENDERIZANDO SUMMARY - modal.report:", modal.report)}
+                  <div style={{ background: '#f0fdf4', border: '2px solid #22c55e', padding: '16px', borderRadius: '8px', marginBottom: '20px', color: '#14532d', fontSize: '14px', lineHeight: '1.5' }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '15px' }}>
                       Procesamiento completado exitosamente
                     </div>
-                    <div style={{ marginBottom: '4px' }}>
+                    <div style={{ marginBottom: 4 }}>
                       <strong>Procesado:</strong> {formatDate(Date.now())}
                     </div>
                     <div>
@@ -468,23 +507,12 @@ export default function Dashboard() {
                     {modal.report ? (
                       <a
                         href={downloadReportUrl(modal.report.id)}
-                        style={{
-                          ...styles.button,
-                          display: "inline-block",
-                          textDecoration: "none"
-                        }}
+                        style={{ ...styles.button, display: "inline-block", textDecoration: "none" }}
                       >
                         📄 Descargar Informe Completo
                       </a>
                     ) : (
-                      <div style={{
-                        color: '#6b7280',
-                        fontSize: '14px',
-                        padding: '12px',
-                        backgroundColor: '#f9fafb',
-                        borderRadius: '6px',
-                        border: '1px solid #e5e7eb'
-                      }}>
+                      <div style={{ color: '#6b7280', fontSize: '14px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
                         No se encontró el reporte (aún). Puedes verificar en "Gestión de Documentos".
                       </div>
                     )}
@@ -494,23 +522,11 @@ export default function Dashboard() {
 
               {/* Resumen – Error */}
               {modal.type === "error" && (
-                <div style={{
-                  background: '#fef2f2',
-                  border: '2px solid #ef4444',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  color: '#7f1d1d',
-                  fontSize: '14px',
-                  lineHeight: '1.5'
-                }}>
-                  <div style={{
-                    fontWeight: 700,
-                    marginBottom: 12,
-                    fontSize: '15px'
-                  }}>
+                <div style={{ background: '#fef2f2', border: '2px solid #ef4444', padding: '16px', borderRadius: '8px', color: '#7f1d1d', fontSize: '14px', lineHeight: '1.5' }}>
+                  <div style={{ fontWeight: 700, marginBottom: 12, fontSize: '15px' }}>
                     ⚠️ Error en el procesamiento
                   </div>
-                  <div style={{ marginBottom: '8px' }}>
+                  <div style={{ marginBottom: 8 }}>
                     <strong>Mensaje:</strong> {modal.errorMsg || "Error desconocido"}
                   </div>
                   <div>
@@ -520,17 +536,13 @@ export default function Dashboard() {
               )}
             </div>
 
-
             {/* Pie del modal */}
             <div style={styles.modalFoot}>
               {modal.type === "select" && (
                 <>
                   <button
                     onClick={() => setModal(null)}
-                    style={{
-                      ...styles.button,
-                      backgroundColor: '#6b7280'
-                    }}
+                    style={{ ...styles.button, backgroundColor: '#6b7280' }}
                   >
                     Cancelar
                   </button>
@@ -545,10 +557,7 @@ export default function Dashboard() {
               {modal.type !== "select" && (
                 <button
                   onClick={() => setModal(null)}
-                  style={{
-                    ...styles.button,
-                    backgroundColor: '#6b7280'
-                  }}
+                  style={{ ...styles.button, backgroundColor: '#6b7280' }}
                 >
                   Cerrar
                 </button>

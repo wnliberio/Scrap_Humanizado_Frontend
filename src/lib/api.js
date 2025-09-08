@@ -89,8 +89,15 @@ export async function updateListaEstado(id, { estado, mensaje_error } = {}) {
 
 // Reporte por job
 export async function getReportByJob(jobId) {
-  const res = await fetch(`${BASE}/reports/by-job/${jobId}`);
+  const url = `${BASE}/reports/by-job/${jobId}`;
+  console.log("Llamando a:", url);
+  
+  const res = await fetch(url);
+  console.log("Status:", res.status);
+  
   if (!res.ok) throw new Error(`getReportByJob: ${res.status}`);
-  return res.json();
+  
+  const data = await res.json();
+  console.log("Data recibida:", data);
+  return data;
 }
-
