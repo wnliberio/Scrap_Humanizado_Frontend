@@ -1,4 +1,4 @@
-// src/lib/api.js - ACTUALIZADO CON NUEVAS FUNCIONES DE TRACKING
+// src/lib/api.js - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES NECESARIAS
 const RAW_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api";
 
 // Normaliza BASE para que *siempre* termine con /api
@@ -12,6 +12,8 @@ const BASE = (() => {
     return "http://127.0.0.1:8000/api";
   }
 })();
+
+console.log('📡 API cargada - Base URL:', BASE);
 
 // ===== FUNCIONES EXISTENTES (MANTENER PARA COMPATIBILIDAD) =====
 
@@ -64,12 +66,7 @@ export function downloadReportUrl(reportId) {
   return `${BASE}/reports/${reportId}/download`;
 }
 
-// ===== FUNCIÓN FALTANTE PARA DASHBOARD =====
 export async function getReportByJob(jobId) {
-  /**
-   * Obtiene un reporte específico por job ID.
-   * Necesaria para el Dashboard original.
-   */
   const url = `${BASE}/reports/by-job/${jobId}`;
   console.log("Llamando a:", url);
   
@@ -109,20 +106,16 @@ export async function updateListaEstado(id, { estado, mensaje_error } = {}) {
 // ===== NUEVAS FUNCIONES PARA SISTEMA DE TRACKING =====
 
 export async function getPaginasDisponibles() {
-  /**
-   * Obtiene todas las páginas disponibles para consulta.
-   * Se usa para mostrar los checkboxes en el selector de páginas.
-   */
+  console.log('🔍 Obteniendo páginas disponibles...');
   const res = await fetch(`${BASE}/tracking/paginas`);
   if (!res.ok) throw new Error(`getPaginasDisponibles: ${res.status}`);
-  return res.json();
+  const data = await res.json();
+  console.log('✅ Páginas obtenidas:', data.length);
+  return data;
 }
 
 export async function getClientesConTracking({ estado, fechaDesde, fechaHasta, q } = {}) {
-  /**
-   * Obtiene clientes con información de tracking mejorado.
-   * Incluye proceso activo si existe.
-   */
+  console.log('🔍 Obteniendo clientes con tracking...');
   const qs = new URLSearchParams();
   if (estado && estado !== "Todos") qs.set("estado", estado);
   if (fechaDesde) qs.set("fecha_desde", fechaDesde);
@@ -130,24 +123,38 @@ export async function getClientesConTracking({ estado, fechaDesde, fechaHasta, q
   if (q && q.trim()) qs.set("q", q.trim());
   
   const url = `${BASE}/tracking/clientes${qs.toString() ? `?${qs.toString()}` : ""}`;
+  console.log('📡 URL:', url);
+  
   const res = await fetch(url);
   if (!res.ok) throw new Error(`getClientesConTracking: ${res.status}`);
+  
+  const data = await res.json();
+  console.log('✅ Clientes obtenidos:', data.length);
+  return data;
+}
+
+export async function updateClienteEstado(clienteId, estado, mensajeError = null) {
+  console.log(`🔄 Actualizando cliente ${clienteId} a estado: ${estado}`);
+  const res = await fetch(`${BASE}/tracking/clientes/${clienteId}/estado`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ 
+      estado, 
+      mensaje_error: mensajeError 
+    }),
+  });
+  if (!res.ok) throw new Error(`updateClienteEstado: ${res.status}`);
   return res.json();
 }
 
 export async function crearProcesoConPaginas(clienteId, paginasCodigos, opciones = {}) {
-  /**
-   * Crea un nuevo proceso para un cliente con las páginas seleccionadas.
-   * 
-   * @param {number} clienteId - ID del cliente
-   * @param {string[]} paginasCodigos - Array de códigos de páginas ['ruc', 'deudas', etc.]
-   * @param {Object} opciones - Opciones adicionales
-   */
+  console.log(`🚀 Creando proceso para cliente ${clienteId} con páginas:`, paginasCodigos);
+  
   const body = {
     cliente_id: clienteId,
     paginas_codigos: paginasCodigos,
     headless: opciones.headless || false,
-    generate_report: opciones.generateReport !== false, // true por defecto
+    generate_report: opciones.generateReport !== false,
   };
 
   const res = await fetch(`${BASE}/tracking/procesos/crear`, {
@@ -161,42 +168,17 @@ export async function crearProcesoConPaginas(clienteId, paginasCodigos, opciones
     throw new Error(`crearProcesoConPaginas: ${res.status} - ${error.detail || 'Error desconocido'}`);
   }
   
-  return res.json();
+  const data = await res.json();
+  console.log('✅ Proceso creado:', data);
+  return data;
 }
 
-export async function updateClienteEstado(clienteId, estado, mensajeError = null) {
-  /**
-   * Actualiza el estado de un cliente específico.
-   */
-  const body = {
-    estado: estado,
-    mensaje_error: mensajeError,
-  };
-
-  const res = await fetch(`${BASE}/tracking/clientes/${clienteId}/estado`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  
-  if (!res.ok) throw new Error(`updateClienteEstado: ${res.status}`);
-  return res.json();
-}
-
-export async function checkSystemHealth() {
-  /**
-   * Verifica el health del sistema de tracking.
-   */
-  const res = await fetch(`${BASE}/tracking/health`);
-  if (!res.ok) throw new Error(`checkSystemHealth: ${res.status}`);
-  return res.json();
-}
-
-// ===== UTILIDADES PARA UI =====
+// ===== FUNCIONES DE FORMATEO (NECESARIAS PARA MODALES) =====
 
 export function formatearEstadoConsulta(estado) {
   /**
    * Formatea el estado de una consulta individual para mostrar en UI.
+   * NECESARIA PARA ModalDetallesMejorado.jsx
    */
   const estados = {
     'Pendiente': { texto: 'Pendiente', color: 'gray', icono: '⏳' },
@@ -213,34 +195,70 @@ export function formatearEstadoProceso(estado) {
    * Formatea el estado de un proceso completo para mostrar en UI.
    */
   const estados = {
-    'Pendiente': { texto: 'Pendiente', color: 'gray', icono: '⏳' },
-    'En_Proceso': { texto: 'En Proceso', color: 'blue', icono: '🔄' },
-    'Completado': { texto: 'Completado', color: 'green', icono: '✅' },
-    'Completado_Con_Errores': { texto: 'Completado con Errores', color: 'yellow', icono: '⚠️' },
-    'Error_Total': { texto: 'Error Total', color: 'red', icono: '❌' }
+    'Pendiente': { texto: 'Pendiente', color: '#f59e0b', icono: '⏳' },
+    'En_Proceso': { texto: 'En Proceso', color: '#3b82f6', icono: '🔄' },
+    'Completado': { texto: 'Completado', color: '#10b981', icono: '✅' },
+    'Completado_Con_Errores': { texto: 'Completado con Errores', color: '#f59e0b', icono: '⚠️' },
+    'Error_Total': { texto: 'Error Total', color: '#ef4444', icono: '❌' }
   };
   
-  return estados[estado] || { texto: estado, color: 'gray', icono: '❓' };
+  return estados[estado] || { texto: estado, color: '#6b7280', icono: '❓' };
 }
 
-// ===== CONFIGURACIÓN Y CONSTANTES =====
+// ===== CONFIGURACIÓN DE PÁGINAS =====
 
 export const TIPOS_PAGINA = {
-  ruc: { nombre: 'SRI - RUC', requiere: 'RUC' },
-  deudas: { nombre: 'SRI - Deudas', requiere: 'RUC' },
-  denuncias: { nombre: 'Fiscalía - Denuncias', requiere: 'CI' },
-  interpol: { nombre: 'INTERPOL', requiere: 'Nombres/Apellidos' },
-  mercado_valores: { nombre: 'Mercado de Valores', requiere: 'RUC/CI' },
-  google: { nombre: 'Google', requiere: 'Texto libre' },
-  contraloria: { nombre: 'Contraloría', requiere: 'CI' },
-  supercias_persona: { nombre: 'Superintendencia', requiere: 'CI' },
-  predio_quito: { nombre: 'Predios Quito', requiere: 'CI' },
-  predio_manta: { nombre: 'Predios Manta', requiere: 'CI' }
+  interpol: { nombre: 'INTERPOL', requiere: ['Apellidos'] },
+  supercias_persona: { nombre: 'Supercias Personas', requiere: ['CI'] },
+  ruc: { nombre: 'SRI - RUC', requiere: ['RUC'] },
+  google: { nombre: 'Google', requiere: ['Nombres'] },
+  contraloria: { nombre: 'Contraloría', requiere: ['CI'] },
+  mercado_valores: { nombre: 'Mercado Valores', requiere: ['RUC'] },
+  denuncias: { nombre: 'Fiscalía - Denuncias', requiere: ['Nombres'] },
+  deudas: { nombre: 'SRI - Deudas', requiere: ['RUC'] },
+  predio_quito: { nombre: 'Predios Quito', requiere: ['CI'] },
+  predio_manta: { nombre: 'Predios Manta', requiere: ['CI'] }
 };
 
-export const ESTADOS_CLIENTE = ['Pendiente', 'Procesando', 'Procesado', 'Error'];
+// ===== FUNCIONES DE DEBUGGING =====
 
-// ===== FUNCIÓN DE DEBUG =====
-export function getApiBase() {
-  return BASE;
+export async function probarConexionTracking() {
+  try {
+    console.log('🔍 Probando conexión tracking...');
+    const res = await fetch(`${BASE}/tracking/health`);
+    if (!res.ok) throw new Error(`Health check: ${res.status}`);
+    const data = await res.json();
+    console.log('✅ Conexión tracking OK:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error conexión tracking:', error);
+    throw error;
+  }
 }
+
+export async function diagnosticarSistema() {
+  try {
+    console.log('🔍 Ejecutando diagnóstico completo...');
+    const res = await fetch(`${BASE.replace('/api', '')}/api/diagnostico`);
+    if (!res.ok) throw new Error(`Diagnóstico: ${res.status}`);
+    const data = await res.json();
+    console.log('✅ Diagnóstico completo:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error en diagnóstico:', error);
+    throw error;
+  }
+}
+
+// ===== EXPORTAR DEBUGGING AL WINDOW =====
+if (typeof window !== 'undefined') {
+  window.sistemaDebug = {
+    diagnosticar: diagnosticarSistema,
+    probarTracking: probarConexionTracking,
+    base: BASE,
+    testClientes: () => getClientesConTracking(),
+    testPaginas: () => getPaginasDisponibles()
+  };
+}
+
+console.log('✅ API completa cargada correctamente');
