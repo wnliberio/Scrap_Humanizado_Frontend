@@ -600,7 +600,7 @@ Páginas: ${resultado.paginas_solicitadas.join(', ')}`);
 
             {/* Info del cliente */}
             <div style={{
-              backgroundColor: '#f0f9ff', border: '1px solid #b3e5fc',
+              backgroundColor: '#1c9df2ff', border: '1px solid #2594c7ff',
               padding: '16px', borderRadius: '8px', marginBottom: '20px'
             }}>
               <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
@@ -610,10 +610,12 @@ Páginas: ${resultado.paginas_solicitadas.join(', ')}`);
               <div>CI: {modalSeleccion.ci || 'N/A'} • RUC: {modalSeleccion.ruc || 'N/A'}</div>
             </div>
 
-            {/* Grid de páginas */}
+{/* Grid de páginas - MEJORADO PARA LEGIBILIDAD */}
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-              gap: '12px', marginBottom: '24px'
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', // Más ancho
+              gap: '16px', // Gap más grande
+              marginBottom: '24px'
             }}>
               {Object.entries(TIPOS_PAGINA).map(([codigo, config]) => {
                 const habilitada = puedeUsarPagina(modalSeleccion, codigo);
@@ -621,12 +623,17 @@ Páginas: ${resultado.paginas_solicitadas.join(', ')}`);
                   <div
                     key={codigo}
                     style={{
-                      display: 'flex', alignItems: 'center', padding: '12px',
-                      border: '2px solid', borderRadius: '6px',
+                      display: 'flex', 
+                      alignItems: 'flex-start', // Cambio para mejor alineación
+                      padding: '16px', // Padding más generoso
+                      border: '2px solid', 
+                      borderRadius: '8px', // Bordes más redondeados
                       borderColor: checks[codigo] ? '#3b82f6' : '#e5e7eb',
-                      backgroundColor: checks[codigo] ? '#eff6ff' : habilitada ? 'white' : '#f9fafb',
-                      opacity: habilitada ? 1 : 0.5,
-                      cursor: habilitada ? 'pointer' : 'not-allowed'
+                      backgroundColor: checks[codigo] ? '#eff6ff' : habilitada ? 'white' : '#f3f4f6',
+                      opacity: habilitada ? 1 : 0.6, // Mejor contraste para deshabilitados
+                      cursor: habilitada ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s ease', // Transición suave
+                      boxShadow: checks[codigo] ? '0 2px 8px rgba(59, 130, 246, 0.15)' : '0 1px 3px rgba(0, 0, 0, 0.1)'
                     }}
                     onClick={() => habilitada && setChecks(prev => ({ ...prev, [codigo]: !prev[codigo] }))}
                   >
@@ -635,14 +642,41 @@ Páginas: ${resultado.paginas_solicitadas.join(', ')}`);
                       checked={checks[codigo]}
                       disabled={!habilitada}
                       onChange={() => {}}
-                      style={{ marginRight: '8px' }}
+                      style={{ 
+                        marginRight: '12px', // Más separación
+                        marginTop: '2px', // Alineación vertical
+                        width: '18px', // Checkbox más grande
+                        height: '18px',
+                        cursor: habilitada ? 'pointer' : 'not-allowed'
+                      }}
                     />
-                    <div>
-                      <div style={{ fontWeight: '500', fontSize: '14px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontWeight: '600', // Más peso para el título
+                        fontSize: '16px', // Fuente más grande
+                        color: '#111827', // Color más oscuro para mejor contraste
+                        lineHeight: '1.4',
+                        marginBottom: '6px' // Separación entre título y descripción
+                      }}>
                         {config.nombre}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      <div style={{ 
+                        fontSize: '14px', // Fuente más grande para descripción
+                        color: '#374151', // Color más oscuro que #6b7280
+                        lineHeight: '1.4',
+                        fontWeight: '500' // Peso medio para mejor legibilidad
+                      }}>
                         Requiere: {config.requiere.join(', ')}
+                        {!habilitada && (
+                          <div style={{ 
+                            color: '#dc2626', 
+                            fontSize: '13px', 
+                            fontWeight: '600',
+                            marginTop: '4px' 
+                          }}>
+                            ⚠️ Datos faltantes
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
