@@ -1,15 +1,11 @@
-// src/App.jsx - ACTUALIZADO CON REACT ROUTER
+// src/App.jsx - VERSIÓN LIMPIA SIN RUTAS NO DESEADAS
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 
-// Componentes existentes
-import Dashboard from './pages/Dashboard';
-import QueryForm from './components/QueryForm';
-
-// Nuevos componentes (los crearemos después)
+// Solo los componentes que queremos mantener
 import DashboardMejorado from './components/DashboardMejorado';
 
-// Componente para la navegación con estado activo
+// Componente para la navegación simplificada
 function Navigation() {
   const location = useLocation();
   
@@ -17,10 +13,10 @@ function Navigation() {
     return location.pathname === path;
   };
 
-  const linkClass = (path, isSpecial = false) => {
-    const baseClass = "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors";
+  const linkClass = (path) => {
+    const baseClass = "flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors";
     if (isActive(path)) {
-      return `${baseClass} ${isSpecial ? 'bg-blue-100 text-blue-700 border-b-2 border-blue-500' : 'bg-gray-100 text-gray-900 border-b-2 border-gray-500'}`;
+      return `${baseClass} bg-blue-100 text-blue-700 border-b-2 border-blue-500`;
     }
     return `${baseClass} text-gray-600 hover:text-gray-900 hover:bg-gray-50`;
   };
@@ -29,30 +25,32 @@ function Navigation() {
     <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-6">
+          
+          {/* Logo/Título */}
+          <div className="flex items-center">
             <div className="flex-shrink-0">
-              <h1 className="text-xl font-bold text-gray-900">
-                📊 Sistema de Consultas
+              <h1 className="text-xl font-bold text-gray-900 flex items-center">
+                <span className="ml-2">QueriBot</span>
               </h1>
-            </div>
-            
-            <div className="flex space-x-4">
-              <Link to="/" className={linkClass('/')}>
-                🏠 Dashboard Original
-              </Link>
-              <Link to="/mejorado" className={linkClass('/mejorado', true)}>
-                🚀 Dashboard Mejorado
-              </Link>
-              <Link to="/consultas" className={linkClass('/consultas')}>
-                🔍 Consultas Directas
-              </Link>
             </div>
           </div>
           
+          {/* Navegación central - Solo Dashboard Mejorado */}
+          <div className="flex items-center">
+            <Link to="/" className={linkClass('/')}>
+              📊 Dashboard Principal
+            </Link>
+          </div>
+          
+          {/* Info de versión */}
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500">
-              v2.0 - Tracking Granular
-            </span>
+            <div className="text-sm text-gray-500 flex items-center">
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium mr-2">
+                v2.0
+              </span>
+              Tracking Granular Activo
+            </div>
+            
             <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white text-xs font-bold">SQ</span>
             </div>
@@ -63,127 +61,123 @@ function Navigation() {
   );
 }
 
+// Página de bienvenida simplificada (solo si alguien accede a /welcome)
+function PaginaBienvenida() {
+  return (
+    <div className="min-h-[70vh] flex items-center justify-center">
+      <div className="max-w-md mx-auto text-center">
+        <div className="text-8xl mb-8">🚀</div>
+        
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Sistema de Consultas 2.0
+        </h1>
+        
+        <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+          Tracking granular por página consultada, reportes automáticos en formato DOCX, 
+          y seguimiento en tiempo real de todos los procesos.
+        </p>
+        
+        <div className="space-y-4">
+          <Link 
+            to="/" 
+            className="block w-full bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg"
+          >
+            🚀 Ir al Dashboard Principal
+          </Link>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mt-8">
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="font-semibold text-green-800 mb-2">✅ Implementado</div>
+              <ul className="space-y-1 text-left">
+                <li>• Tracking granular</li>
+                <li>• Reportes DOCX</li>
+                <li>• Dashboard en tiempo real</li>
+                <li>• Múltiples páginas web</li>
+              </ul>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="font-semibold text-blue-800 mb-2">🎯 Características</div>
+              <ul className="space-y-1 text-left">
+                <li>• Estados detallados</li>
+                <li>• Descarga automática</li>
+                <li>• Polling cada 5 seg</li>
+                <li>• Interfaz moderna</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Página 404 personalizada
+function Pagina404() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-6xl mb-6">❓</div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          Página no encontrada
+        </h1>
+        <p className="text-gray-600 mb-8 text-lg">
+          La página que buscas no existe o ha sido removida.
+        </p>
+        <div className="space-x-4">
+          <Link 
+            to="/" 
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            🏠 Ir al Dashboard
+          </Link>
+          <Link 
+            to="/welcome" 
+            className="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors font-semibold"
+          >
+            ℹ️ Información
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente principal de la App
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        
+        {/* Navegación */}
         <Navigation />
 
         {/* Contenido principal */}
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="flex-1">
           <Routes>
-            {/* Dashboard original */}
-            <Route path="/" element={
-              <div>
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Dashboard Original</h2>
-                  <p className="text-gray-600">Sistema tradicional de consultas automatizadas</p>
-                </div>
-                <Dashboard />
-              </div>
-            } />
+            {/* Ruta principal - Dashboard Mejorado */}
+            <Route path="/" element={<DashboardMejorado />} />
             
-            {/* Nuevo dashboard mejorado */}
-            <Route path="/mejorado" element={
-              <div>
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    🚀 Dashboard Mejorado
-                  </h2>
-                  <p className="text-gray-600">
-                    Nueva versión con tracking granular y mejores visualizaciones
-                  </p>
-                </div>
-                <DashboardMejorado />
-              </div>
-            } />
+            {/* Página de información/bienvenida */}
+            <Route path="/welcome" element={<PaginaBienvenida />} />
             
-            {/* Consultas directas */}
-            <Route path="/consultas" element={
-              <div>
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Consultas Directas</h2>
-                  <p className="text-gray-600">Realizar consultas individuales en tiempo real</p>
-                </div>
-                <QueryForm />
-              </div>
-            } />
-            
-            {/* Página de inicio/bienvenida */}
-            <Route path="/welcome" element={
-              <div className="text-center py-12">
-                <div className="max-w-md mx-auto">
-                  <div className="text-6xl mb-6">🎯</div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                    Sistema de Consultas Automatizadas
-                  </h1>
-                  <p className="text-gray-600 mb-8 text-lg">
-                    Ahora con tracking granular por página consultada y mejores visualizaciones
-                  </p>
-                  
-                  <div className="space-y-4">
-                    <Link 
-                      to="/" 
-                      className="block w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      📊 Dashboard Original
-                    </Link>
-                    <Link 
-                      to="/mejorado" 
-                      className="block w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      🚀 Dashboard Mejorado (Nuevo)
-                    </Link>
-                    <Link 
-                      to="/consultas" 
-                      className="block w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      🔍 Consultas Directas
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            } />
-            
-            {/* Ruta por defecto - redirige al dashboard original */}
-            <Route path="*" element={
-              <div className="text-center py-12">
-                <div className="text-6xl mb-6">❓</div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                  Página no encontrada
-                </h1>
-                <p className="text-gray-600 mb-8">
-                  La página que buscas no existe.
-                </p>
-                <div className="space-x-4">
-                  <Link 
-                    to="/" 
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Ir al Dashboard
-                  </Link>
-                  <Link 
-                    to="/welcome" 
-                    className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Página de Inicio
-                  </Link>
-                </div>
-              </div>
-            } />
+            {/* Página 404 para cualquier ruta no encontrada */}
+            <Route path="*" element={<Pagina404 />} />
           </Routes>
         </div>
 
         {/* Footer */}
-        <footer className="bg-white border-t mt-auto">
+        <footer className="bg-white border-t">
           <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center">
               <p className="text-sm text-gray-500">
-                © 2025 Sistema de Consultas - Versión 2.0
+                © 2025 Sistema de Consultas Automatizadas - Versión 2.0
               </p>
-              <p className="text-sm text-gray-400">
-                Desarrollado con React + FastAPI
-              </p>
+              <div className="flex items-center space-x-4 text-sm text-gray-400">
+                <span>Desarrollado con React + FastAPI</span>
+                <span>•</span>
+                <span>Tracking Granular Habilitado</span>
+              </div>
             </div>
           </div>
         </footer>

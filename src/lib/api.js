@@ -262,3 +262,266 @@ if (typeof window !== 'undefined') {
 }
 
 console.log('✅ API completa cargada correctamente');
+// FUNCIONES ADICIONALES PARA api.js - AÑADIR AL FINAL DEL ARCHIVO EXISTENTE
+
+// ===== NUEVAS FUNCIONES PARA MODALDETALLESMEJORADO =====
+
+/**
+ * Obtiene los detalles completos de un proceso específico
+ * @param {string} procesoId - ID del proceso
+ * @returns {Promise<Object>} Detalles del proceso con consultas
+ */
+export async function obtenerDetallesProceso(procesoId) {
+  console.log(`🔍 Obteniendo detalles del proceso ${procesoId}...`);
+  
+  const res = await fetch(`${BASE}/tracking/procesos/${procesoId}/detalles`);
+  if (!res.ok) {
+    throw new Error(`obtenerDetallesProceso: ${res.status}`);
+  }
+  
+  const data = await res.json();
+  console.log('✅ Detalles del proceso obtenidos:', data);
+  return data;
+}
+
+/**
+ * Obtiene todos los reportes disponibles para un cliente específico
+ * @param {number} clienteId - ID del cliente
+ * @returns {Promise<Array>} Lista de reportes del cliente
+ */
+export async function obtenerReportesCliente(clienteId) {
+  console.log(`🔍 Obteniendo reportes del cliente ${clienteId}...`);
+  
+  const res = await fetch(`${BASE}/tracking/clientes/${clienteId}/reportes`);
+  if (!res.ok) {
+    // Si no existe el endpoint o el cliente no tiene reportes, retornar array vacío
+    if (res.status === 404) {
+      console.log('ℹ️ No se encontraron reportes para el cliente');
+      return [];
+    }
+    throw new Error(`obtenerReportesCliente: ${res.status}`);
+  }
+  
+  const data = await res.json();
+  console.log(`✅ Reportes del cliente obtenidos: ${data.length} reportes`);
+  return data;
+}
+
+/**
+ * Descarga un reporte específico por proceso ID
+ * @param {string} procesoId - ID del proceso
+ * @returns {Promise<Blob>} Archivo del reporte
+ */
+export async function descargarReportePorProceso(procesoId) {
+  console.log(`📥 Descargando reporte del proceso ${procesoId}...`);
+  
+  const res = await fetch(`${BASE}/tracking/reportes/${procesoId}/download`);
+  if (!res.ok) {
+    throw new Error(`descargarReportePorProceso: ${res.status} - No se pudo descargar el reporte`);
+  }
+  
+  const blob = await res.blob();
+  console.log('✅ Reporte descargado exitosamente');
+  return blob;
+}
+
+/**
+ * Obtiene la URL directa para descargar un reporte
+ * @param {string} procesoId - ID del proceso
+ * @returns {string} URL de descarga
+ */
+export function obtenerUrlDescargaReporte(procesoId) {
+  return `${BASE}/tracking/reportes/${procesoId}/download`;
+}
+
+/**
+ * Descarga un reporte y crea automáticamente el enlace de descarga
+ * @param {string} procesoId - ID del proceso
+ * @param {string} nombreCliente - Nombre del cliente para el archivo
+ * @returns {Promise<boolean>} True si la descarga fue exitosa
+ */
+export async function descargarReporteAutomatico(procesoId, nombreCliente = 'cliente') {
+  try {
+    console.log(`🚀 Iniciando descarga automática para proceso ${procesoId}...`);
+    
+    const response = await fetch(`${BASE}/tracking/reportes/${procesoId}/download`);
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: No se pudo descargar el reporte`);
+    }
+
+    // Crear blob del archivo
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    
+    // Crear enlace de descarga automático
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Determinar nombre del archivo
+    let filename = 'reporte.docx';
+    const disposition = response.headers.get('Content-Disposition');
+    if (disposition) {
+      const filenameMatch = disposition.match(/filename="?(.+)"?/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    } else {
+      // Generar nombre basado en cliente y fecha
+      const fecha = new Date().toISOString().split('T')[0];
+      filename = `reporte_${nombreCliente.replace(/\s+/g, '_')}_${fecha}.docx`;
+    }
+    
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('✅ Descarga automática completada:', filename);
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Error en descarga automática:', error);
+    throw error;
+  }
+}
+
+/**
+ * Verifica el estado de un reporte para un proceso
+ * @param {string} procesoId - ID del proceso
+ * @returns {Promise<Object>} Estado del reporte
+ */
+export async function verificarEstadoReporte(procesoId) {
+  console.log(`🔍 Verificando estado del reporte para proceso ${procesoId}...`);
+  
+  const res = await fetch(`${BASE}/tracking/reportes/${procesoId}/estado`);
+  if (!res.ok) {
+    if (res.status === 404) {
+      return { existe: false, generado: false };
+    }
+    throw new Error(`verificarEstadoReporte: ${res.status}`);
+  }
+  
+  const data = await res.json();
+  console.log('✅ Estado del reporte verificado:', data);
+  return data;
+}
+
+/**
+ * Formatea los datos del proceso para mostrar en el modal
+ * @param {Object} procesoActivo - Datos del proceso activo
+ * @returns {Object} Datos formateados para el modal
+ */
+export function formatearDatosProceso(procesoActivo) {
+  if (!procesoActivo) return null;
+
+  return {
+    ...procesoActivo,
+    // Asegurar que consultas sea siempre un array
+    consultas: procesoActivo.consultas || [],
+    
+    // Formatear fechas si existen
+    fecha_creacion_formateada: procesoActivo.fecha_creacion ? 
+      new Date(procesoActivo.fecha_creacion).toLocaleString('es-EC') : null,
+    
+    fecha_completado_formateada: procesoActivo.fecha_completado ? 
+      new Date(procesoActivo.fecha_completado).toLocaleString('es-EC') : null,
+    
+    // Calcular estadísticas
+    estadisticas: calcularEstadisticasProceso(procesoActivo.consultas || [])
+  };
+}
+
+/**
+ * Calcula estadísticas de un proceso basado en sus consultas
+ * @param {Array} consultas - Array de consultas del proceso
+ * @returns {Object} Estadísticas calculadas
+ */
+export function calcularEstadisticasProceso(consultas) {
+  if (!Array.isArray(consultas)) {
+    return { total: 0, exitosas: 0, fallidas: 0, pendientes: 0, porcentajeExito: 0 };
+  }
+
+  const total = consultas.length;
+  const exitosas = consultas.filter(c => c.estado === 'Exitosa').length;
+  const fallidas = consultas.filter(c => c.estado === 'Fallida').length;
+  const pendientes = consultas.filter(c => c.estado === 'Pendiente' || c.estado === 'En_Proceso').length;
+  
+  return {
+    total,
+    exitosas,
+    fallidas,
+    pendientes,
+    porcentajeExito: total > 0 ? Math.round((exitosas / total) * 100) : 0
+  };
+}
+
+/**
+ * Función helper para manejar errores de descarga
+ * @param {Error} error - Error capturado
+ * @param {string} procesoId - ID del proceso que falló
+ * @returns {string} Mensaje de error formateado
+ */
+export function formatearErrorDescarga(error, procesoId) {
+  console.error(`❌ Error descargando reporte ${procesoId}:`, error);
+  
+  if (error.message.includes('404')) {
+    return 'El reporte no existe o aún no ha sido generado';
+  } else if (error.message.includes('500')) {
+    return 'Error interno del servidor al generar el reporte';
+  } else if (error.message.includes('403')) {
+    return 'No tienes permisos para descargar este reporte';
+  } else {
+    return `Error inesperado: ${error.message}`;
+  }
+}
+
+// ===== FUNCIONES DE DEBUGGING ESPECÍFICAS PARA EL MODAL =====
+
+/**
+ * Prueba todas las funciones relacionadas con el modal
+ * @param {number} clienteId - ID del cliente para probar
+ * @returns {Promise<Object>} Resultados de las pruebas
+ */
+export async function probarFuncionesModal(clienteId) {
+  console.log('🧪 Probando funciones del modal...');
+  const resultados = {};
+  
+  try {
+    // Probar obtención de cliente
+    console.log('1. Probando getClientesConTracking...');
+    const clientes = await getClientesConTracking();
+    resultados.clientes = { exito: true, cantidad: clientes.length };
+    
+    // Probar obtención de reportes
+    console.log('2. Probando obtenerReportesCliente...');
+    const reportes = await obtenerReportesCliente(clienteId);
+    resultados.reportes = { exito: true, cantidad: reportes.length };
+    
+    console.log('✅ Todas las pruebas del modal completadas');
+    return resultados;
+    
+  } catch (error) {
+    console.error('❌ Error en pruebas del modal:', error);
+    resultados.error = error.message;
+    return resultados;
+  }
+}
+
+// ===== AGREGAR AL WINDOW PARA DEBUGGING =====
+if (typeof window !== 'undefined') {
+  // Añadir al objeto sistemaDebug existente
+  window.sistemaDebug = {
+    ...window.sistemaDebug,
+    modal: {
+      probarFunciones: probarFuncionesModal,
+      descargarReporte: descargarReporteAutomatico,
+      verificarEstado: verificarEstadoReporte,
+      obtenerReportes: obtenerReportesCliente,
+      formatearProceso: formatearDatosProceso
+    }
+  };
+}
+
+console.log('✅ Funciones del modal añadidas correctamente');
