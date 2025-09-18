@@ -714,7 +714,7 @@ const DashboardMejorado = () => {
                   border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600'
                 }}
               >
-                🚀 Iniciar Proceso
+                 Iniciar Proceso
               </button>
             </div>
           </div>
