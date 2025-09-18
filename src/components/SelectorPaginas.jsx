@@ -106,7 +106,8 @@ const SelectorPaginas = ({
       contraloria: '📋',
       supercias_persona: '👤',
       predio_quito: '🏠',
-      predio_manta: '🏖️'
+      predio_manta: '🏖️',
+      funcion_judicial: '🏛️'
     };
     return iconos[codigo] || '📄';
   };

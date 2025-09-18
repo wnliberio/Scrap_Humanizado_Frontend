@@ -217,7 +217,8 @@ export const TIPOS_PAGINA = {
   denuncias: { nombre: 'Fiscalía - Denuncias', requiere: ['Nombres'] },
   deudas: { nombre: 'SRI - Deudas', requiere: ['RUC'] },
   predio_quito: { nombre: 'Predios Quito', requiere: ['CI'] },
-  predio_manta: { nombre: 'Predios Manta', requiere: ['CI'] }
+  predio_manta: { nombre: 'Predios Manta', requiere: ['CI'] },
+  funcion_judicial: { nombre: 'Función Judicial', requiere: ['Nombres'] }, 
 };
 
 // ===== FUNCIONES DE DEBUGGING =====

@@ -37,6 +37,7 @@ const DashboardMejorado = () => {
     deudas: false,
     predio_quito: false,
     predio_manta: false,
+    funcion_judicial: false, 
   });
 
   // Para el sistema de tracking
@@ -116,6 +117,7 @@ const DashboardMejorado = () => {
         deudas: false,
         predio_quito: false,
         predio_manta: false,
+        funcion_judicial: false, 
       });
     } else {
       // Para cualquier otro estado, mostrar el modal de detalles mejorado
@@ -144,6 +146,7 @@ const DashboardMejorado = () => {
       deudas: false,
       predio_quito: false,
       predio_manta: false,
+      funcion_judicial: false, 
     });
   };
 
@@ -243,6 +246,15 @@ const DashboardMejorado = () => {
         items.push({ tipo: "predio_manta", valor: row.ci });
       }
     }
+    // ✅ FUNCIÓN JUDICIAL -> Apellidos + Nombres
+    if (checks.funcion_judicial) {
+      if (!nombre || !apellido) {
+        console.warn("Función Judicial omitido: faltan nombres o apellidos.");
+      } else {
+        const fullName = `${apellido} ${nombre}`.trim();
+        items.push({ tipo: "funcion_judicial", valor: fullName });
+      }
+    }
 
     return items;
   };
@@ -276,12 +288,12 @@ const DashboardMejorado = () => {
       console.log('✅ Proceso de tracking creado:', resultado);
       
       // Mostrar confirmación
-      if (resultado.job_id) {
-        alert(`Proceso creado exitosamente!
-Job ID: ${resultado.job_id}
-Proceso ID: ${resultado.proceso_id}
-Páginas: ${resultado.paginas_solicitadas.join(', ')}`);
-      }
+      //if (resultado.job_id) {
+        //alert(`Proceso creado exitosamente!
+//Job ID: ${resultado.job_id}
+//Proceso ID: ${resultado.proceso_id}
+//Páginas: ${resultado.paginas_solicitadas.join(', ')}`);
+    //  }
 
       // Cerrar modal y refrescar
       cerrarModalSeleccion();
