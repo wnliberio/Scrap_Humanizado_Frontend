@@ -23,14 +23,14 @@ function Navigation() {
 
   return (
     <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-9 lg:px-8">
         <div className="flex justify-between h-16">
           
           {/* Logo/Título */}
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <h1 className="text-xl font-bold text-gray-900 flex items-center">
-                <span className="ml-2">QueriBot</span>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                <span className="ml-2">CONSULTA DE PROCESOS JUDICIALES ELECTRÓNICOS</span>
               </h1>
             </div>
           </div>
@@ -46,13 +46,13 @@ function Navigation() {
           <div className="flex items-center space-x-4">
             <div className="text-sm text-gray-500 flex items-center">
               <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium mr-2">
-                v2.0
+                v1.0
               </span>
-              Tracking Granular Activo
+              {/* Tracking Granular Activo*/}
             </div>
             
             <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs font-bold">SQ</span>
+              <span className="text-white text-xs font-bold">Mupi</span>
             </div>
           </div>
         </div>

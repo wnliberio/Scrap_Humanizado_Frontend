@@ -208,17 +208,17 @@ export function formatearEstadoProceso(estado) {
 // ===== CONFIGURACIÓN DE PÁGINAS =====
 
 export const TIPOS_PAGINA = {
-  interpol: { nombre: 'INTERPOL', requiere: ['Apellidos'] },
-  supercias_persona: { nombre: 'Supercias Personas', requiere: ['CI'] },
-  ruc: { nombre: 'SRI - RUC', requiere: ['RUC'] },
-  google: { nombre: 'Google', requiere: ['Nombres'] },
-  contraloria: { nombre: 'Contraloría', requiere: ['CI'] },
-  mercado_valores: { nombre: 'Mercado Valores', requiere: ['RUC'] },
-  denuncias: { nombre: 'Fiscalía - Denuncias', requiere: ['Nombres'] },
-  deudas: { nombre: 'SRI - Deudas', requiere: ['RUC'] },
-  predio_quito: { nombre: 'Predios Quito', requiere: ['CI'] },
-  predio_manta: { nombre: 'Predios Manta', requiere: ['CI'] },
-  funcion_judicial: { nombre: 'Función Judicial', requiere: ['Nombres'] }, 
+ // interpol: { nombre: 'INTERPOL', requiere: ['Apellidos'] },
+ // supercias_persona: { nombre: 'Supercias Personas', requiere: ['CI'] },
+ // ruc: { nombre: 'SRI - RUC', requiere: ['RUC'] },
+ // google: { nombre: 'Google', requiere: ['Nombres'] },
+ // contraloria: { nombre: 'Contraloría', requiere: ['CI'] },
+ // mercado_valores: { nombre: 'Mercado Valores', requiere: ['RUC'] },
+ // denuncias: { nombre: 'Fiscalía - Denuncias', requiere: ['Nombres'] },
+ // deudas: { nombre: 'SRI - Deudas', requiere: ['RUC'] },
+ // predio_quito: { nombre: 'Predios Quito', requiere: ['CI'] },
+ // predio_manta: { nombre: 'Predios Manta', requiere: ['CI'] },
+  funcion_judicial: { nombre: 'Función Judicial', requiere: ['Apellidos - Nombres'] }, 
 };
 
 // ===== FUNCIONES DE DEBUGGING =====
