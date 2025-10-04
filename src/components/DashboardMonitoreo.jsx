@@ -1,5 +1,5 @@
-// src/components/DashboardMonitoreo.jsx - VISTA SOLO LECTURA CON CONTROL DE DAEMON
-import React, { useState, useEffect } from 'react';
+// src/components/DashboardMonitoreo.jsx - CON CONTADORES DE ESTADÍSTICAS
+import React, { useState, useEffect, useMemo } from 'react';
 import ModalDetallesMejorado from './ModalDetallesMejorado';
 
 const DashboardMonitoreo = () => {
@@ -10,13 +10,24 @@ const DashboardMonitoreo = () => {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   
-  // NUEVO: Estado del daemon
+  // Estado del daemon
   const [daemonState, setDaemonState] = useState({
     running: false,
     loading: false
   });
 
   const BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api";
+
+  // ===== CALCULAR ESTADÍSTICAS =====
+  const estadisticas = useMemo(() => {
+    const total = clientes.length;
+    const pendientes = clientes.filter(c => c.estado === 'Pendiente').length;
+    const procesando = clientes.filter(c => c.estado === 'Procesando').length;
+    const procesados = clientes.filter(c => c.estado === 'Procesado').length;
+    const errores = clientes.filter(c => c.estado === 'Error').length;
+    
+    return { total, pendientes, procesando, procesados, errores };
+  }, [clientes]);
 
   // ===== FUNCIONES DE DAEMON =====
   
@@ -66,11 +77,8 @@ const DashboardMonitoreo = () => {
       const data = await res.json();
       
       if (data.success) {
-        alert('✅ Daemon detenido correctamente');
+        alert('⏹️ Daemon detenido correctamente');
         setDaemonState({ running: false, loading: false });
-      } else {
-        alert(`⚠️ ${data.message}`);
-        setDaemonState(prev => ({ ...prev, loading: false }));
       }
     } catch (error) {
       alert(`❌ Error deteniendo daemon: ${error.message}`);
@@ -78,31 +86,46 @@ const DashboardMonitoreo = () => {
     }
   };
 
-  // ===== CARGAR CLIENTES =====
+  // ===== FUNCIONES DE CLIENTES =====
   
   const cargarClientes = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const params = new URLSearchParams();
-      if (filtroEstado && filtroEstado !== 'Todos') params.append('estado', filtroEstado);
-      if (busqueda.trim()) params.append('q', busqueda.trim());
       
-      const url = `${BASE}/tracking/clientes?${params.toString()}`;
+      if (filtroEstado !== 'Todos') {
+        params.set('estado', filtroEstado);
+      }
+      if (busqueda.trim()) {
+        params.set('q', busqueda.trim());
+      }
+      
+      const url = `${BASE}/tracking/clientes${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url);
       
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      
-      const data = await res.json();
-      setClientes(data);
+      if (res.ok) {
+        const data = await res.json();
+        setClientes(data);
+      }
     } catch (error) {
       console.error('Error cargando clientes:', error);
-      alert('Error cargando clientes');
     } finally {
       setLoading(false);
     }
   };
 
-  // ===== POLLING =====
+  const abrirDetalles = (cliente) => {
+    setClienteSeleccionado(cliente);
+    setModalVisible(true);
+  };
+
+  const cerrarModal = () => {
+    setModalVisible(false);
+    setClienteSeleccionado(null);
+    cargarClientes(); // Refrescar después de cerrar
+  };
+
+  // ===== EFECTOS =====
   
   useEffect(() => {
     cargarClientes();
@@ -117,37 +140,26 @@ const DashboardMonitoreo = () => {
     return () => clearInterval(interval);
   }, [filtroEstado, busqueda]);
 
-  // ===== FUNCIONES DE UI =====
+  // ===== HELPERS =====
   
-  const verDetalles = (cliente) => {
-    setClienteSeleccionado(cliente);
-    setModalVisible(true);
-  };
-
-  const cerrarModal = () => {
-    setModalVisible(false);
-    setClienteSeleccionado(null);
-  };
-
   const getEstadoColor = (estado) => {
     const colores = {
-      'Pendiente': 'bg-yellow-100 text-yellow-800',
-      'Procesando': 'bg-blue-100 text-blue-800',
-      'Procesado': 'bg-green-100 text-green-800',
-      'Error': 'bg-red-100 text-red-800'
+      'Pendiente': '#f59e0b',
+      'Procesando': '#3b82f6',
+      'Procesado': '#10b981',
+      'Error': '#ef4444'
     };
-    return colores[estado] || 'bg-gray-100 text-gray-800';
+    return colores[estado] || '#6b7280';
   };
 
-  const formatearFecha = (fecha) => {
-    if (!fecha) return 'N/A';
-    return new Date(fecha).toLocaleString('es-EC', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const getEstadoIcono = (estado) => {
+    const iconos = {
+      'Pendiente': '⏳',
+      'Procesando': '🔄',
+      'Procesado': '✅',
+      'Error': '❌'
+    };
+    return iconos[estado] || '❓';
   };
 
   // ===== RENDER =====
@@ -155,97 +167,129 @@ const DashboardMonitoreo = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
       
-      {/* Header con Control del Daemon */}
+      {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#1f2937', marginBottom: '8px' }}>
-              Dashboard de Monitoreo
-            </h1>
-            <p style={{ color: '#6b7280', fontSize: '16px' }}>
-              Vista en tiempo real del procesamiento automático
-            </p>
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#1f2937', marginBottom: '8px' }}>
+          Dashboard de Monitoreo
+        </h1>
+        <p style={{ color: '#6b7280', fontSize: '16px' }}>
+          Vista en tiempo real del procesamiento automático
+        </p>
+      </div>
+
+      {/* CONTADORES DE ESTADÍSTICAS */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        gap: '16px', 
+        marginBottom: '24px' 
+      }}>
+        {/* Total */}
+        <div style={{
+          backgroundColor: 'white', 
+          padding: '20px', 
+          borderRadius: '8px',
+          border: '2px solid #6b7280', 
+          textAlign: 'center',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#374151' }}>
+            {estadisticas.total}
           </div>
-          
-          {/* Controles del Daemon */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '12px', 
-            alignItems: 'center',
-            padding: '16px',
-            backgroundColor: daemonState.running ? '#d1fae5' : '#fee2e2',
-            borderRadius: '8px',
-            border: `2px solid ${daemonState.running ? '#10b981' : '#ef4444'}`
-          }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1f2937' }}>
-                Estado del Daemon
-              </div>
-              <div style={{ 
-                fontSize: '12px', 
-                color: daemonState.running ? '#059669' : '#dc2626',
-                fontWeight: '600'
-              }}>
-                {daemonState.running ? '🟢 EJECUTÁNDOSE' : '🔴 DETENIDO'}
-              </div>
-            </div>
-            
-            {daemonState.running ? (
-              <button
-                onClick={detenerDaemon}
-                disabled={daemonState.loading}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: daemonState.loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '600',
-                  opacity: daemonState.loading ? 0.6 : 1
-                }}
-              >
-                {daemonState.loading ? '⏳ Deteniendo...' : '⏹️ Detener'}
-              </button>
-            ) : (
-              <button
-                onClick={iniciarDaemon}
-                disabled={daemonState.loading}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: daemonState.loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '600',
-                  opacity: daemonState.loading ? 0.6 : 1
-                }}
-              >
-                {daemonState.loading ? '⏳ Iniciando...' : '▶️ Iniciar'}
-              </button>
-            )}
+          <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
+            TOTAL
+          </div>
+        </div>
+
+        {/* Pendientes */}
+        <div style={{
+          backgroundColor: 'white', 
+          padding: '20px', 
+          borderRadius: '8px',
+          border: '2px solid #f59e0b', 
+          textAlign: 'center',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#92400e' }}>
+            {estadisticas.pendientes}
+          </div>
+          <div style={{ fontSize: '14px', color: '#92400e', fontWeight: '500' }}>
+            PENDIENTES
+          </div>
+        </div>
+        
+        {/* Procesando */}
+        <div style={{
+          backgroundColor: 'white', 
+          padding: '20px', 
+          borderRadius: '8px',
+          border: '2px solid #3b82f6', 
+          textAlign: 'center',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1e40af' }}>
+            {estadisticas.procesando}
+          </div>
+          <div style={{ fontSize: '14px', color: '#1e40af', fontWeight: '500' }}>
+            PROCESANDO
+          </div>
+        </div>
+        
+        {/* Procesados */}
+        <div style={{
+          backgroundColor: 'white', 
+          padding: '20px', 
+          borderRadius: '8px',
+          border: '2px solid #10b981', 
+          textAlign: 'center',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#065f46' }}>
+            {estadisticas.procesados}
+          </div>
+          <div style={{ fontSize: '14px', color: '#065f46', fontWeight: '500' }}>
+            PROCESADOS
+          </div>
+        </div>
+        
+        {/* Errores */}
+        <div style={{
+          backgroundColor: 'white', 
+          padding: '20px', 
+          borderRadius: '8px',
+          border: '2px solid #ef4444', 
+          textAlign: 'center',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#991b1b' }}>
+            {estadisticas.errores}
+          </div>
+          <div style={{ fontSize: '14px', color: '#991b1b', fontWeight: '500' }}>
+            ERRORES
           </div>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div style={{
-        display: 'flex',
-        gap: '16px',
-        marginBottom: '24px',
+      {/* Control del Daemon + Filtros */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
         alignItems: 'center',
-        flexWrap: 'wrap',
-        backgroundColor: '#f3f4f6',
-        padding: '16px',
-        borderRadius: '8px'
+        marginBottom: '24px',
+        gap: '16px',
+        flexWrap: 'wrap'
       }}>
-        <div>
-          <label style={{ fontWeight: '500', marginRight: '8px' }}>Estado:</label>
-          <select
-            value={filtroEstado}
+        {/* Filtros */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
+          <select 
+            value={filtroEstado} 
             onChange={(e) => setFiltroEstado(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+            style={{ 
+              padding: '8px 12px', 
+              border: '1px solid #d1d5db', 
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
           >
             <option value="Todos">Todos</option>
             <option value="Pendiente">Pendiente</option>
@@ -253,39 +297,86 @@ const DashboardMonitoreo = () => {
             <option value="Procesado">Procesado</option>
             <option value="Error">Error</option>
           </select>
-        </div>
-
-        <div>
-          <label style={{ fontWeight: '500', marginRight: '8px' }}>Buscar:</label>
+          
           <input
             type="text"
             placeholder="Nombre, apellido, CI, RUC..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
+            style={{ 
+              padding: '8px 12px', 
+              border: '1px solid #d1d5db', 
               borderRadius: '6px',
-              minWidth: '300px'
+              fontSize: '14px',
+              minWidth: '250px'
             }}
           />
+          
+          <button
+            onClick={cargarClientes}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            {loading ? '🔄 Cargando...' : '🔄 Refrescar'}
+          </button>
         </div>
 
-        <button
-          onClick={cargarClientes}
-          disabled={loading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1
-          }}
-        >
-          {loading ? '🔄 Cargando...' : '🔄 Refrescar'}
-        </button>
+        {/* Estado del Daemon */}
+        <div style={{
+          backgroundColor: daemonState.running ? '#dcfce7' : '#fee2e2',
+          border: `2px solid ${daemonState.running ? '#10b981' : '#ef4444'}`,
+          borderRadius: '8px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div>
+            <div style={{ 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: '#6b7280',
+              marginBottom: '4px'
+            }}>
+              Estado del Daemon
+            </div>
+            <div style={{ 
+              fontSize: '14px', 
+              fontWeight: 'bold',
+              color: daemonState.running ? '#065f46' : '#991b1b'
+            }}>
+              {daemonState.running ? '● EJECUTANDO' : '● DETENIDO'}
+            </div>
+          </div>
+          
+          <button
+            onClick={daemonState.running ? detenerDaemon : iniciarDaemon}
+            disabled={daemonState.loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: daemonState.running ? '#ef4444' : '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: daemonState.loading ? 'not-allowed' : 'pointer',
+              opacity: daemonState.loading ? 0.6 : 1,
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            {daemonState.loading ? '⏳...' : (daemonState.running ? '⏹ Detener' : '▶ Iniciar')}
+          </button>
+        </div>
       </div>
 
       {/* Tabla de Clientes */}
@@ -298,63 +389,79 @@ const DashboardMonitoreo = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
             <tr>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>ID</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Cliente</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>CI/RUC</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Estado</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Fecha</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Acciones</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>ID</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Cliente</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>CI/RUC</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Estado</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Fecha</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {clientes.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
-                  {loading ? '🔄 Cargando...' : '📭 No hay clientes con estos filtros'}
+                <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+                  {loading ? '🔄 Cargando clientes...' : '📭 No hay clientes con estos filtros'}
                 </td>
               </tr>
             ) : (
               clientes.map((cliente) => (
-                <tr
+                <tr 
                   key={cliente.id}
-                  style={{ borderBottom: '1px solid #e5e7eb' }}
+                  style={{ 
+                    borderBottom: '1px solid #e5e7eb',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                 >
-                  <td style={{ padding: '12px' }}>{cliente.id}</td>
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ fontWeight: '500' }}>
-                      {cliente.apellido} {cliente.nombre}
-                    </div>
+                  <td style={{ padding: '12px', fontSize: '14px', color: '#374151' }}>
+                    {cliente.id}
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '14px', fontWeight: '500' }}>
+                    {cliente.nombre} {cliente.apellido}
                   </td>
                   <td style={{ padding: '12px', fontSize: '14px', color: '#6b7280' }}>
-                    {cliente.ci || cliente.ruc || 'N/A'}
+                    <div>{cliente.ci && `CI: ${cliente.ci}`}</div>
+                    <div>{cliente.ruc && `RUC: ${cliente.ruc}`}</div>
                   </td>
                   <td style={{ padding: '12px' }}>
                     <span style={{
+                      display: 'inline-block',
                       padding: '4px 12px',
                       borderRadius: '12px',
                       fontSize: '12px',
-                      fontWeight: '600'
-                    }} className={getEstadoColor(cliente.estado)}>
-                      {cliente.estado}
+                      fontWeight: '600',
+                      backgroundColor: `${getEstadoColor(cliente.estado)}20`,
+                      color: getEstadoColor(cliente.estado)
+                    }}>
+                      {getEstadoIcono(cliente.estado)} {cliente.estado}
                     </span>
                   </td>
                   <td style={{ padding: '12px', fontSize: '14px', color: '#6b7280' }}>
-                    {formatearFecha(cliente.fecha_creacion)}
+                    {new Date(cliente.fecha_creacion).toLocaleString('es-EC', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </td>
                   <td style={{ padding: '12px' }}>
                     <button
-                      onClick={() => verDetalles(cliente)}
+                      onClick={() => abrirDetalles(cliente)}
                       style={{
                         padding: '6px 12px',
                         backgroundColor: '#3b82f6',
                         color: 'white',
                         border: 'none',
-                        borderRadius: '4px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
-                        fontSize: '12px'
+                        fontSize: '13px',
+                        fontWeight: '500'
                       }}
                     >
-                      👁️ Ver Detalles
+                      📋 Ver Detalles
                     </button>
                   </td>
                 </tr>
@@ -364,17 +471,17 @@ const DashboardMonitoreo = () => {
         </table>
       </div>
 
-      {/* Información del Daemon */}
+      {/* Info del Daemon */}
       {daemonState.running && (
         <div style={{
           marginTop: '24px',
           padding: '16px',
           backgroundColor: '#dbeafe',
-          borderRadius: '8px',
-          border: '1px solid #3b82f6'
+          border: '1px solid #3b82f6',
+          borderRadius: '8px'
         }}>
-          <p style={{ margin: 0, color: '#1e40af', fontSize: '14px' }}>
-            ℹ️ <strong>Daemon activo:</strong> El sistema está procesando automáticamente clientes pendientes. 
+          <p style={{ margin: 0, fontSize: '14px', color: '#1e40af' }}>
+            ℹ️ <strong>Daemon en ejecución:</strong> El sistema procesará automáticamente los clientes pendientes.
             Procesa hasta 5 clientes y espera 30 minutos entre lotes.
           </p>
         </div>

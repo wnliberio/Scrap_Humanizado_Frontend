@@ -17,82 +17,6 @@ console.log('📡 API cargada - Base URL:', BASE);
 
 // ===== FUNCIONES EXISTENTES (MANTENER PARA COMPATIBILIDAD) =====
 
-export async function createConsultas(items, opts = {}) {
-  const body = {
-    items,
-    modo: "async",
-    headless: !!opts.headless,
-  };
-
-  if (opts.meta) {
-    body.informe_meta = {
-      tipo_alerta: opts.meta.tipo_alerta || "",
-      monto_usd: opts.meta.monto_usd ?? null,
-      fecha_alerta: opts.meta.fecha_alerta || null,
-    };
-  }
-  if (typeof opts.generate_report === "boolean") {
-    body.generate_report = opts.generate_report;
-  }
-
-  const res = await fetch(`${BASE}/consultas`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`createConsultas: ${res.status}`);
-  return res.json();
-}
-
-export async function getJobStatus(jobId) {
-  const res = await fetch(`${BASE}/consultas/${jobId}/status`);
-  if (!res.ok) throw new Error(`getJobStatus: ${res.status}`);
-  return res.json();
-}
-
-export async function listReports({ fechaDesde, fechaHasta, onlyDocx = true } = {}) {
-  const qs = new URLSearchParams();
-  if (fechaDesde) qs.set("fecha_desde", fechaDesde);
-  if (fechaHasta) qs.set("fecha_hasta", fechaHasta);
-  if (onlyDocx) qs.set("only_docx", "true");
-
-  const url = `${BASE}/reports${qs.toString() ? `?${qs.toString()}` : ""}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`listReports: ${res.status}`);
-  return res.json();
-}
-
-export function downloadReportUrl(reportId) {
-  return `${BASE}/reports/${reportId}/download`;
-}
-
-export async function getReportByJob(jobId) {
-  const url = `${BASE}/reports/by-job/${jobId}`;
-  console.log("Llamando a:", url);
-  
-  const res = await fetch(url);
-  console.log("Status:", res.status);
-  
-  if (!res.ok) throw new Error(`getReportByJob: ${res.status}`);
-  
-  const data = await res.json();
-  console.log("Data recibida:", data);
-  return data;
-}
-
-export async function listLista({ estado, fechaDesde, fechaHasta, q } = {}) {
-  const qs = new URLSearchParams();
-  if (estado && estado !== "Todos") qs.set("estado", estado);
-  if (fechaDesde) qs.set("fecha_desde", fechaDesde);
-  if (fechaHasta) qs.set("fecha_hasta", fechaHasta);
-  if (q && q.trim()) qs.set("q", q.trim());
-  
-  const url = `${BASE}/lista${qs.toString() ? `?${qs.toString()}` : ""}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`listLista: ${res.status}`);
-  return res.json();
-}
-
 export async function updateListaEstado(id, { estado, mensaje_error } = {}) {
   const res = await fetch(`${BASE}/lista/${id}/estado`, {
     method: "PUT",
@@ -207,18 +131,10 @@ export function formatearEstadoProceso(estado) {
 
 // ===== CONFIGURACIÓN DE PÁGINAS =====
 
+// Solo Función Judicial está activo
+// Solo Función Judicial está activo
 export const TIPOS_PAGINA = {
- // interpol: { nombre: 'INTERPOL', requiere: ['Apellidos'] },
- // supercias_persona: { nombre: 'Supercias Personas', requiere: ['CI'] },
- // ruc: { nombre: 'SRI - RUC', requiere: ['RUC'] },
- // google: { nombre: 'Google', requiere: ['Nombres'] },
- // contraloria: { nombre: 'Contraloría', requiere: ['CI'] },
- // mercado_valores: { nombre: 'Mercado Valores', requiere: ['RUC'] },
- // denuncias: { nombre: 'Fiscalía - Denuncias', requiere: ['Nombres'] },
- // deudas: { nombre: 'SRI - Deudas', requiere: ['RUC'] },
- // predio_quito: { nombre: 'Predios Quito', requiere: ['CI'] },
- // predio_manta: { nombre: 'Predios Manta', requiere: ['CI'] },
-  funcion_judicial: { nombre: 'Función Judicial', requiere: ['Apellidos - Nombres'] }, 
+  funcion_judicial: { nombre: 'Función Judicial', requiere: ['Apellidos - Nombres'] }
 };
 
 // ===== FUNCIONES DE DEBUGGING =====
